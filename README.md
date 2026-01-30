@@ -1,11 +1,40 @@
+# Final Year Project
 
-  # EmoBeat App Design
+## Overview
+This repository contains my **Final Year Project (FYP)** developed to fulfill the requirements of my undergraduate degree.  
+The project is a **React-based web application** focusing on clean structure, maintainable code, and modern development practices.
 
-  This is a code bundle for EmoBeat App Design. The original project is available at https://www.figma.com/design/oQB7Kze7o1iykXyDyEdSaU/EmoBeat-App-Design.
+...............................................
 
-  ## Running the code
+## Technologies
+- React.js  
+- JavaScript (ES6+)  
+- HTML5, CSS3  
+- Node.js & npm  
+- Git & GitHub  
 
-  Run `npm i` to install the dependencies.
+...............................................
 
-  Run `npm run dev` to start the development server.
-  
+## Setup & Execution
+Follow the steps below to run the project locally:
+
+1. Clone the repository:
+```bash
+git clone https://github.com/EhsaanAlahi/EmoBeat-Prototype.git
+
+2. Navigate to the project directory:
+cd EmoBeat-Prototype
+
+
+3. Install dependencies:
+npm install
+
+
+4. Start the application:
+npm start
+
+5. Key Features
+
+Component-based architecture
+Clean and readable code structure
+Responsive user interface
