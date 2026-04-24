@@ -1,21 +1,17 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { Home, History, Settings, LayoutDashboard, Music2 } from "lucide-react";
 import { Button } from "./ui/button";
 
-export function Navigation({ isAdmin = false }) {
-  const pathname = usePathname();
-
+export function Navigation({ currentPage, onNavigate, isAdmin = false }) {
   const navItems = [
-    { id: "dashboard", label: "Home", href: "/dashboard", icon: Home },
-    { id: "history", label: "History", href: "/history", icon: History },
-    { id: "settings", label: "Settings", href: "/settings", icon: Settings },
+    { id: "dashboard", label: "Home", icon: Home },
+    { id: "history", label: "History", icon: History },
+    { id: "settings", label: "Settings", icon: Settings },
   ];
 
   if (isAdmin) {
-    navItems.push({ id: "admin", label: "Admin", href: "/admin", icon: LayoutDashboard });
+    navItems.push({ id: "admin", label: "Admin", icon: LayoutDashboard });
   }
 
   return (
@@ -34,25 +30,24 @@ export function Navigation({ isAdmin = false }) {
           <div className="flex items-center gap-2">
             {navItems.map((item) => {
               const Icon = item.icon;
-              const isActive = pathname === item.href;
+              const isActive = currentPage === item.id;
 
               return (
-                <Link href={item.href} key={item.id} passHref>
-                  <Button
-                    asChild
-                    variant={isActive ? "default" : "ghost"}
-                    className={
-                      isActive
-                        ? "bg-[#1DB954] text-black hover:bg-[#1ed760]"
-                        : "text-gray-400 hover:text-white hover:bg-gray-800"
-                    }
-                  >
-                    <div className="flex items-center">
-                      <Icon className="w-4 h-4 mr-2" />
-                      {item.label}
-                    </div>
-                  </Button>
-                </Link>
+                <Button
+                  key={item.id}
+                  variant={isActive ? "default" : "ghost"}
+                  onClick={() => onNavigate(item.id)}
+                  className={
+                    isActive
+                      ? "bg-[#1DB954] text-black hover:bg-[#1ed760]"
+                      : "text-gray-400 hover:text-white hover:bg-gray-800"
+                  }
+                >
+                  <div className="flex items-center">
+                    <Icon className="w-4 h-4 mr-2" />
+                    {item.label}
+                  </div>
+                </Button>
               );
             })}
           </div>
