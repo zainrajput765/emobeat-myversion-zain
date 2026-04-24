@@ -1,40 +1,35 @@
-# Final Year Project
+# EmoBeat 🎵
 
-## Overview
-This repository contains my **Final Year Project (FYP)** developed to fulfill the requirements of my undergraduate degree.  
-The project is a **React-based web application** focusing on clean structure, maintainable code, and modern development practices.
+**EmoBeat** is an intelligent, emotion-based music recommendation system designed to enhance the listening experience by aligning music with the user's current mood. This project was developed as a Final Year Project (FYP) to demonstrate the integration of Deep Learning and real-time API services.
 
-...............................................
+## 🚀 Features
 
-## Technologies
-- React.js  
-- JavaScript (ES6+)  
-- HTML5, CSS3  
-- Node.js & npm  
-- Git & GitHub  
+- **Real-time Emotion Detection**: Uses a custom-trained PyTorch ResNet-18 model to detect 7 distinct emotions (Happy, Sad, Angry, Neutral, Disgust, Fear, Surprise).
+- **Sequential User Experience**: Automatically scans the user, announces the detected emotion via voice, and recommends a matching Spotify playlist.
+- **Spotify Integration**: Seamlessly plays curated playlists tailored to the detected mood using Spotify Embeds.
+- **Premium Mockup**: Includes a fully functional subscription and payment interface (Stripe/PayPal mockup) for FYP requirements.
+- **Responsive Dashboard**: A sleek, dark-themed dashboard built with React and Vite for a premium feel.
 
-...............................................
+## 🛠️ Technology Stack
 
-## Setup & Execution
-Follow the steps below to run the project locally:
+- **Frontend**: React.js, Vite, Tailwind CSS, Lucide React
+- **Backend**: FastAPI (Python)
+- **Machine Learning**: PyTorch, Torchvision, PIL
+- **Music API**: Spotify Web API logic
 
-1. Clone the repository:
-```bash
-git clone https://github.com/EhsaanAlahi/EmoBeat-Prototype.git
+## 📦 Installation & Setup
 
-2. Navigate to the project directory:
-cd EmoBeat-Prototype
+### Backend
+1. `cd backend`
+2. `pip install -r requirements.txt`
+3. `uvicorn main:app --reload`
 
+### Frontend
+1. `npm install`
+2. `npm run dev`
 
-3. Install dependencies:
-npm install
+## 👥 Contributors
+- **Shazil Rehman** (@shazy07) - Lead Developer
 
-
-4. Start the application:
-npm start
-
-5. Key Features
-
-Component-based architecture
-Clean and readable code structure
-Responsive user interface
+---
+*Created for FYP Requirements - 2026*
