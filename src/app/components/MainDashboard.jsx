@@ -4,6 +4,8 @@ import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Camera, ExternalLink, Music, Loader2, Sparkles, Activity } from "lucide-react";
 
+const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
 export function MainDashboard({ onNavigate }) {
   const [currentEmotion, setCurrentEmotion] = useState("Scanning...");
   const [confidence, setConfidence] = useState(0);
@@ -76,7 +78,7 @@ export function MainDashboard({ onNavigate }) {
         formData.append("file", blob, "webcam_frame.jpg");
 
         try {
-          const response = await fetch("http://localhost:8000/recommend-music", {
+          const response = await fetch(`${BASE_URL}/recommend-music`, {
             method: "POST",
             body: formData,
           });
@@ -390,7 +392,7 @@ export function MainDashboard({ onNavigate }) {
                 className="w-full bg-[#1DB954] hover:bg-[#1ed760] text-black font-black py-10 text-xl rounded-[1.5rem] transition-all hover:scale-[1.02] shadow-2xl shadow-[#1DB954]/30"
                 onClick={async () => {
                   try {
-                    const response = await fetch("http://localhost:8000/create-checkout-session", {
+                    const response = await fetch(`${BASE_URL}/create-checkout-session`, {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({ plan: "Yearly" }),
