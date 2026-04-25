@@ -224,7 +224,6 @@ export function MainDashboard({ onNavigate }) {
           setLoading(false);
         }
       }, "image/jpeg", 0.8);
-      }, "image/jpeg", 0.8);
     };
 
     // Only run the capture if we have exactly one face locked
