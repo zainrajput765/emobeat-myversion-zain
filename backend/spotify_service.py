@@ -14,7 +14,7 @@ EMOTION_PLAYLISTS = {
     },
     "Angry": {
         "name": "Power Workout",
-        "url": "https://open.spotify.com/playlist/37i9dQZF1DWUVpAXiEPK8P",
+        "url": "https://open.spotify.com/playlist/1LIowjORrNqFFyXYqK0JvE?si=niMq3rONRK-DvAfaS6psFA",
         "cover_image": "https://images.unsplash.com/photo-1518005020481-a685315df121?w=500&h=500&fit=crop"
     },
     "Neutral": {
@@ -24,17 +24,17 @@ EMOTION_PLAYLISTS = {
     },
     "Disgust": {
         "name": "Grunge Forever",
-        "url": "https://open.spotify.com/playlist/37i9dQZF1DX1s9vY9rnuGf",
+        "url": "https://open.spotify.com/playlist/3tKyCWqLHaVGoiVzoPe68N?si=N1Fg49S_RQWb_ShmC-8w5Q",
         "cover_image": "https://images.unsplash.com/photo-1498038432885-c6f3f1b912ee?w=500&h=500&fit=crop"
     },
     "Fear": {
         "name": "Dark Ambient",
-        "url": "https://open.spotify.com/playlist/37i9dQZF1DXbS8uMDYv9PL",
+        "url": "https://open.spotify.com/playlist/3nSKcSSzEMw7TyqxejMIjZ?si=Xa7TBKXxQSWKw-A-vSVxpQ",
         "cover_image": "https://images.unsplash.com/photo-1509248961158-e54f6934749c?w=500&h=500&fit=crop"
     },
     "Surprise": {
         "name": "Chill Hits",
-        "url": "https://open.spotify.com/playlist/37i9dQZF1DX4WYpdgoIcnM",
+        "url": "https://open.spotify.com/playlist/2tSbw892pmjeprgFpibJQx?si=iL2EU_OxSKGJ9XvzLtEdYw",
         "cover_image": "https://images.unsplash.com/photo-1494232410401-ad00d5433cfa?w=500&h=500&fit=crop"
     }
 }
