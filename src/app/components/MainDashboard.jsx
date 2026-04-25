@@ -15,13 +15,17 @@ export function MainDashboard({ onNavigate }) {
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [status, setStatus] = useState(""); 
   const [loading, setLoading] = useState(false);
+  const [faceStatus, setFaceStatus] = useState("waiting"); // waiting | ok | no_face | multiple_faces
+  const [faceBounds, setFaceBounds] = useState(null);
   
   const [currentPlaylist, setCurrentPlaylist] = useState(null);
   const [playlistHistory, setPlaylistHistory] = useState([]);
 
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  const overlayCanvasRef = useRef(null);
   const streamRef = useRef(null);
+  const faceDetectRef = useRef(null);
 
   useEffect(() => {
     const startCamera = async () => {
@@ -54,8 +58,76 @@ export function MainDashboard({ onNavigate }) {
     if (isFinalized && streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
       setCameraActive(false);
+      // Stop face detection loop
+      if (faceDetectRef.current) clearInterval(faceDetectRef.current);
     }
   }, [isFinalized]);
+
+  // Live face detection loop
+  useEffect(() => {
+    if (!cameraActive || isFinalized) return;
+
+    const detectFace = async () => {
+      if (!videoRef.current || !canvasRef.current || isFinalized) return;
+      const video = videoRef.current;
+      if (video.videoWidth === 0) return;
+
+      const tmpCanvas = document.createElement('canvas');
+      tmpCanvas.width = video.videoWidth;
+      tmpCanvas.height = video.videoHeight;
+      tmpCanvas.getContext('2d').drawImage(video, 0, 0);
+
+      tmpCanvas.toBlob(async (blob) => {
+        if (!blob) return;
+        const formData = new FormData();
+        formData.append('file', blob, 'frame.jpg');
+        try {
+          const res = await fetch(`${BASE_URL}/detect-face`, { method: 'POST', body: formData });
+          const data = await res.json();
+          setFaceStatus(data.status);
+          setFaceBounds(data.faces?.[0] || null);
+
+          // Draw bounding box on overlay canvas
+          const overlay = overlayCanvasRef.current;
+          if (!overlay) return;
+          const container = overlay.parentElement;
+          overlay.width = container.clientWidth;
+          overlay.height = container.clientHeight;
+          const ctx = overlay.getContext('2d');
+          ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+          if (data.status === 'ok' && data.faces?.[0]) {
+            const f = data.faces[0];
+            // Mirror the x coordinate to match mirrored video
+            const mirroredX = 1 - f.x - f.w;
+            const x = mirroredX * overlay.width;
+            const y = f.y * overlay.height;
+            const w = f.w * overlay.width;
+            const h = f.h * overlay.height;
+            // Draw glowing green box
+            ctx.strokeStyle = '#1DB954';
+            ctx.lineWidth = 3;
+            ctx.shadowColor = '#1DB954';
+            ctx.shadowBlur = 15;
+            ctx.strokeRect(x, y, w, h);
+            // Corner accents
+            const cs = 20;
+            ctx.lineWidth = 4;
+            [[x,y],[x+w,y],[x,y+h],[x+w,y+h]].forEach(([cx, cy]) => {
+              ctx.beginPath();
+              ctx.moveTo(cx + (cx === x ? cs : -cs), cy);
+              ctx.lineTo(cx, cy);
+              ctx.lineTo(cx, cy + (cy === y ? cs : -cs));
+              ctx.stroke();
+            });
+          }
+        } catch(e) { /* silent */ }
+      }, 'image/jpeg', 0.5);
+    };
+
+    faceDetectRef.current = setInterval(detectFace, 600);
+    return () => clearInterval(faceDetectRef.current);
+  }, [cameraActive, isFinalized]);
 
   useEffect(() => {
     if (!cameraActive || isFinalized || loading) return;
@@ -209,11 +281,39 @@ export function MainDashboard({ onNavigate }) {
                   autoPlay muted playsInline
                 />
                 <canvas ref={canvasRef} className="hidden" />
-                
+
+                {/* Live face tracking overlay canvas */}
+                {!isFinalized && cameraActive && (
+                  <canvas
+                    ref={overlayCanvasRef}
+                    className="absolute inset-0 w-full h-full pointer-events-none"
+                    style={{ zIndex: 10 }}
+                  />
+                )}
+
+                {/* Face Status Banner */}
+                {!isFinalized && cameraActive && faceStatus !== 'waiting' && (
+                  <div className={`absolute top-3 left-1/2 -translate-x-1/2 z-20 px-5 py-2 rounded-full text-[11px] font-black uppercase tracking-widest flex items-center gap-2 backdrop-blur-md border transition-all ${
+                    faceStatus === 'ok' ? 'bg-[#1DB954]/20 border-[#1DB954]/40 text-[#1DB954]' :
+                    faceStatus === 'multiple_faces' ? 'bg-red-500/20 border-red-500/40 text-red-400 animate-pulse' :
+                    'bg-yellow-500/20 border-yellow-500/40 text-yellow-400 animate-pulse'
+                  }`}>
+                    <span>{
+                      faceStatus === 'ok' ? '✅ Face Locked' :
+                      faceStatus === 'multiple_faces' ? '⚠️ Multiple Faces Detected' :
+                      '👤 No Face Detected'
+                    }</span>
+                  </div>
+                )}
+
                 {!isFinalized && cameraActive && (
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-72 h-72 border-[1px] border-[#1DB954]/40 rounded-[3rem] relative overflow-hidden">
-                       <div className="absolute top-0 left-0 w-full h-[2px] bg-[#1DB954] shadow-[0_0_20px_#1DB954] animate-[scan_2.5s_infinite]"></div>
+                    <div className={`w-72 h-72 border-[1px] rounded-[3rem] relative overflow-hidden transition-colors duration-300 ${
+                      faceStatus === 'ok' ? 'border-[#1DB954]/60' :
+                      faceStatus === 'multiple_faces' ? 'border-red-500/60' :
+                      'border-white/20'
+                    }`}>
+                      <div className="absolute top-0 left-0 w-full h-[2px] bg-[#1DB954] shadow-[0_0_20px_#1DB954] animate-[scan_2.5s_infinite]"></div>
                     </div>
                   </div>
                 )}
@@ -230,6 +330,22 @@ export function MainDashboard({ onNavigate }) {
                   </div>
                 )}
               </div>
+
+              {/* Guidance Strip */}
+              {!isFinalized && cameraActive && (
+                <div className="px-6 py-3 bg-black/80 border-t border-white/5 flex items-center justify-center gap-6 flex-wrap">
+                  {[
+                    { icon: "💡", text: "Good lighting" },
+                    { icon: "👤", text: "One person only" },
+                    { icon: "🧍", text: "Stay still" },
+                    { icon: "📷", text: "Face the camera" },
+                  ].map((tip, i) => (
+                    <span key={i} className="text-[10px] font-black text-gray-600 uppercase tracking-widest flex items-center gap-1.5">
+                      <span>{tip.icon}</span> {tip.text}
+                    </span>
+                  ))}
+                </div>
+              )}
             </Card>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

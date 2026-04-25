@@ -7,8 +7,8 @@ import io
 import cv2
 import numpy as np
 
-# Standard FER2013 label order (must match training order exactly)
-EMOTION_LABELS = ["Angry", "Disgust", "Fear", "Happy", "Neutral", "Sad", "Surprise"]
+# Standard FER2013 label order
+EMOTION_LABELS = ["Angry", "Disgust", "Fear", "Happy", "Sad", "Surprise", "Neutral"]
 
 # Smart model path: checks /app first (Hugging Face), then one level up (local Docker)
 _dir = os.path.dirname(__file__)
