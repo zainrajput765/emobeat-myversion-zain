@@ -7,8 +7,8 @@ import io
 import cv2
 import numpy as np
 
-# Updated to 7 classes based on the provided model weights
-EMOTION_LABELS = ["Angry", "Disgust", "Fear", "Happy", "Sad", "Surprise", "Neutral"]
+# Standard FER2013 label order (must match training order exactly)
+EMOTION_LABELS = ["Angry", "Disgust", "Fear", "Happy", "Neutral", "Sad", "Surprise"]
 
 # Smart model path: checks /app first (Hugging Face), then one level up (local Docker)
 _dir = os.path.dirname(__file__)
@@ -46,10 +46,13 @@ class EmotionPredictor:
             return None
 
     def _get_transforms(self):
+        # FER2013 images are grayscale - convert to grayscale then back to 3-channel
+        # This matches the training distribution more closely
         return transforms.Compose([
-            transforms.Resize((224, 224)),
+            transforms.Grayscale(num_output_channels=3),
+            transforms.Resize((48, 48)),
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]), # Standard ImageNet normalization
+            transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
         ])
 
     def predict_emotion(self, image_bytes: bytes) -> str:
@@ -85,13 +88,16 @@ class EmotionPredictor:
 
                 with torch.no_grad():
                     outputs = self.model(tensor)
-                    
-                _, predicted = torch.max(outputs, 1)
-                class_idx = predicted.item()
+                    # Apply softmax to get probabilities
+                    probabilities = torch.nn.functional.softmax(outputs, dim=1)
+                    confidence, predicted = torch.max(probabilities, 1)
+                    class_idx = predicted.item()
+                    conf_pct = confidence.item() * 100
 
                 if class_idx < len(EMOTION_LABELS):
                     label = EMOTION_LABELS[class_idx]
-                    print(f"DEBUG: Predicted Label: {label}")
+                    print(f"DEBUG: Predicted Label: {label} ({conf_pct:.1f}%)")
+                    print(f"DEBUG: All probabilities: {dict(zip(EMOTION_LABELS, [f'{p*100:.1f}%' for p in probabilities[0].tolist()]))}")
                     return label
                 else:
                     print(f"DEBUG: Predicted index {class_idx} out of range. Defaulting to Neutral.")

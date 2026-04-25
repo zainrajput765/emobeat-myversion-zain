@@ -1,69 +1,8 @@
+import { useState, useEffect } from "react";
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
-import { Calendar, Clock, Music } from "lucide-react";
-
-const mockHistory = [
-  {
-    id: 1,
-    date: "Today",
-    time: "2:30 PM",
-    emotion: "Happy",
-    confidence: 92,
-    track: "Good Vibes",
-    artist: "Positive Energy",
-    image: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=100&h=100&fit=crop"
-  },
-  {
-    id: 2,
-    date: "Today",
-    time: "11:15 AM",
-    emotion: "Calm",
-    confidence: 88,
-    track: "Peaceful Mind",
-    artist: "Relaxation Sounds",
-    image: "https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=100&h=100&fit=crop"
-  },
-  {
-    id: 3,
-    date: "Yesterday",
-    time: "6:45 PM",
-    emotion: "Energetic",
-    confidence: 95,
-    track: "Power Hour",
-    artist: "Workout Mix",
-    image: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=100&h=100&fit=crop"
-  },
-  {
-    id: 4,
-    date: "Yesterday",
-    time: "3:20 PM",
-    emotion: "Sad",
-    confidence: 79,
-    track: "Melancholy",
-    artist: "Emotional Ballads",
-    image: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=100&h=100&fit=crop"
-  },
-  {
-    id: 5,
-    date: "Jan 5, 2026",
-    time: "8:00 AM",
-    emotion: "Neutral",
-    confidence: 85,
-    track: "Morning Coffee",
-    artist: "Chill Playlist",
-    image: "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=100&h=100&fit=crop"
-  },
-  {
-    id: 6,
-    date: "Jan 5, 2026",
-    time: "1:30 PM",
-    emotion: "Happy",
-    confidence: 91,
-    track: "Sunshine Day",
-    artist: "Happy Hits",
-    image: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=100&h=100&fit=crop"
-  }
-];
+import { Calendar, Clock, Music, Trash2 } from "lucide-react";
+import { Button } from "./ui/button";
 
 const getEmotionColor = (emotion) => {
   const colors = {
@@ -71,102 +10,148 @@ const getEmotionColor = (emotion) => {
     Sad: "bg-blue-500/20 text-blue-500 border-blue-500/30",
     Neutral: "bg-gray-500/20 text-gray-400 border-gray-500/30",
     Angry: "bg-red-500/20 text-red-500 border-red-500/30",
-    Surprised: "bg-purple-500/20 text-purple-500 border-purple-500/30",
-    Calm: "bg-green-500/20 text-green-500 border-green-500/30",
-    Energetic: "bg-orange-500/20 text-orange-500 border-orange-500/30"
+    Surprise: "bg-purple-500/20 text-purple-500 border-purple-500/30",
+    Fear: "bg-indigo-500/20 text-indigo-400 border-indigo-500/30",
+    Disgust: "bg-green-900/20 text-green-600 border-green-900/30",
   };
   return colors[emotion] || "bg-gray-500/20 text-gray-400 border-gray-500/30";
 };
 
+const getEmotionEmoji = (emotion) => {
+  const emojis = { Happy: "😊", Sad: "😢", Neutral: "😐", Angry: "😠", Surprise: "😲", Fear: "😨", Disgust: "🤢" };
+  return emojis[emotion] || "🎵";
+};
+
+const formatDate = (isoString) => {
+  const date = new Date(isoString);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  const timeStr = date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+
+  if (diffDays === 0) return { date: "Today", time: timeStr };
+  if (diffDays === 1) return { date: "Yesterday", time: timeStr };
+  return { date: date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }), time: timeStr };
+};
+
 export function UserHistory() {
+  const [history, setHistory] = useState([]);
+
+  useEffect(() => {
+    try {
+      const raw = JSON.parse(localStorage.getItem("emobeat_scan_history") || "[]");
+      setHistory([...raw].reverse()); // Most recent first
+    } catch {
+      setHistory([]);
+    }
+  }, []);
+
+  const totalSessions = history.length;
+  const emotionCounts = history.reduce((acc, h) => { acc[h.emotion] = (acc[h.emotion] || 0) + 1; return acc; }, {});
+  const topEmotion = Object.entries(emotionCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || "—";
+
+  const clearHistory = () => {
+    localStorage.removeItem("emobeat_scan_history");
+    setHistory([]);
+  };
+
   return (
-    <div className="min-h-screen bg-[#121212] p-6">
-      <div className="max-w-5xl mx-auto space-y-6">
+    <div className="min-h-screen bg-[#050505] p-6 md:p-10">
+      <div className="max-w-5xl mx-auto space-y-8">
         {/* Header */}
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold text-white">Listening History</h1>
-          <p className="text-gray-400">Track your emotional journey and music selections</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-4xl font-black text-white italic tracking-tighter">MOOD ARCHIVE</h1>
+            <p className="text-gray-500 text-xs uppercase tracking-widest font-bold mt-1">Your emotional scan history</p>
+          </div>
+          {history.length > 0 && (
+            <Button
+              variant="outline"
+              className="border-red-500/30 text-red-500 hover:bg-red-500/10 font-bold"
+              onClick={clearHistory}
+            >
+              <Trash2 className="w-4 h-4 mr-2" /> Clear All
+            </Button>
+          )}
         </div>
 
-        {/* Stats Cards */}
+        {/* Stats Cards - REAL DATA */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="bg-[#181818] border-[#282828] p-6">
-            <div className="flex items-center gap-3">
-              <div className="bg-[#1DB954]/20 p-3 rounded-lg">
+          <Card className="bg-[#0f0f0f] border-gray-800 p-6 rounded-[2rem]">
+            <div className="flex items-center gap-4">
+              <div className="bg-[#1DB954]/10 p-3 rounded-2xl">
                 <Music className="w-6 h-6 text-[#1DB954]" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-white">124</p>
-                <p className="text-sm text-gray-400">Total Sessions</p>
+                <p className="text-3xl font-black text-white">{totalSessions}</p>
+                <p className="text-xs text-gray-500 uppercase tracking-widest font-bold">Total Scans</p>
               </div>
             </div>
           </Card>
 
-          <Card className="bg-[#181818] border-[#282828] p-6">
-            <div className="flex items-center gap-3">
-              <div className="bg-yellow-500/20 p-3 rounded-lg">
+          <Card className="bg-[#0f0f0f] border-gray-800 p-6 rounded-[2rem]">
+            <div className="flex items-center gap-4">
+              <div className="bg-yellow-500/10 p-3 rounded-2xl">
                 <Calendar className="w-6 h-6 text-yellow-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-white">Happy</p>
-                <p className="text-sm text-gray-400">Most Common Mood</p>
+                <p className="text-3xl font-black text-white">{getEmotionEmoji(topEmotion)}</p>
+                <p className="text-xs text-gray-500 uppercase tracking-widest font-bold">{topEmotion === "—" ? "No data" : `Top: ${topEmotion}`}</p>
               </div>
             </div>
           </Card>
 
-          <Card className="bg-[#181818] border-[#282828] p-6">
-            <div className="flex items-center gap-3">
-              <div className="bg-blue-500/20 p-3 rounded-lg">
-                <Clock className="w-6 h-6 text-blue-500" />
+          <Card className="bg-[#0f0f0f] border-gray-800 p-6 rounded-[2rem]">
+            <div className="flex items-center gap-4">
+              <div className="bg-blue-500/10 p-3 rounded-2xl">
+                <Clock className="w-6 h-6 text-blue-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-white">32h</p>
-                <p className="text-sm text-gray-400">Total Listening Time</p>
+                <p className="text-3xl font-black text-white">{Object.keys(emotionCounts).length}</p>
+                <p className="text-xs text-gray-500 uppercase tracking-widest font-bold">Unique Moods Detected</p>
               </div>
             </div>
           </Card>
         </div>
 
         {/* History List */}
-        <Card className="bg-[#181818] border-[#282828]">
-          <div className="divide-y divide-[#282828]">
-            {mockHistory.map((entry) => (
-              <div
-                key={entry.id}
-                className="p-4 hover:bg-[#282828]/50 transition-colors cursor-pointer"
-              >
-                <div className="flex items-center gap-4">
-                  {/* Album Art */}
-                  <img
-                    src={entry.image}
-                    alt={entry.track}
-                    className="w-16 h-16 rounded-lg"
-                  />
-
-                  {/* Track Info */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white font-medium truncate">{entry.track}</p>
-                    <p className="text-sm text-gray-400 truncate">{entry.artist}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Clock className="w-3 h-3 text-gray-500" />
-                      <span className="text-xs text-gray-500">{entry.date} at {entry.time}</span>
+        <Card className="bg-[#0f0f0f] border-gray-800 rounded-[2rem] overflow-hidden">
+          {history.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-24 text-center">
+              <div className="text-6xl mb-6">🎵</div>
+              <p className="text-gray-500 font-black italic uppercase text-lg tracking-tighter">No history yet</p>
+              <p className="text-gray-700 text-xs font-bold uppercase tracking-widest mt-2">Go scan your emotion on the dashboard!</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-900">
+              {history.map((entry, i) => {
+                const { date, time } = formatDate(entry.timestamp);
+                return (
+                  <div key={i} className="p-5 hover:bg-white/5 transition-colors flex items-center gap-5">
+                    {/* Emoji */}
+                    <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center text-3xl flex-shrink-0">
+                      {getEmotionEmoji(entry.emotion)}
                     </div>
-                  </div>
 
-                  {/* Emotion Badge */}
-                  <div className="text-right">
-                    <Badge
-                      variant="outline"
-                      className={getEmotionColor(entry.emotion)}
-                    >
+                    {/* Playlist Info */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-black truncate uppercase tracking-tight">{entry.playlist}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Clock className="w-3 h-3 text-gray-600" />
+                        <span className="text-xs text-gray-600 font-bold">{date} at {time}</span>
+                      </div>
+                    </div>
+
+                    {/* Emotion Badge */}
+                    <Badge variant="outline" className={`${getEmotionColor(entry.emotion)} font-black uppercase text-[10px] tracking-wider`}>
                       {entry.emotion}
                     </Badge>
-                    <p className="text-xs text-gray-500 mt-1">{entry.confidence}% confidence</p>
                   </div>
-                </div>
-              </div>
-            ))}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </Card>
       </div>
     </div>
