@@ -33,7 +33,7 @@ EMOTION_PLAYLISTS = {
         "cover_image": "https://images.unsplash.com/photo-1509248961158-e54f6934749c?w=500&h=500&fit=crop"
     },
     "Surprise": {
-        "name": "Chill Hits",
+        "name": "Elemental Surprise",
         "url": "https://open.spotify.com/playlist/2tSbw892pmjeprgFpibJQx?si=iL2EU_OxSKGJ9XvzLtEdYw",
         "cover_image": "https://images.unsplash.com/photo-1494232410401-ad00d5433cfa?w=500&h=500&fit=crop"
     }

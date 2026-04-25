@@ -10,8 +10,11 @@ import numpy as np
 # Updated to 7 classes based on the provided model weights
 EMOTION_LABELS = ["Angry", "Disgust", "Fear", "Happy", "Sad", "Surprise", "Neutral"]
 
-# Assuming emotion_resnet18.pth is in the root directory (one level up from backend/)
-MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "emotion_resnet18.pth")
+# Smart model path: checks /app first (Hugging Face), then one level up (local Docker)
+_dir = os.path.dirname(__file__)
+_local_path = os.path.join(_dir, "emotion_resnet18.pth")
+_parent_path = os.path.join(_dir, "..", "emotion_resnet18.pth")
+MODEL_PATH = _local_path if os.path.exists(_local_path) else _parent_path
 
 class EmotionPredictor:
     def __init__(self):
