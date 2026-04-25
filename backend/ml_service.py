@@ -7,7 +7,7 @@ import io
 import cv2
 import numpy as np
 
-# Standard FER2013 label order
+# Original working label order
 EMOTION_LABELS = ["Angry", "Disgust", "Fear", "Happy", "Sad", "Surprise", "Neutral"]
 
 # Smart model path: checks /app first (Hugging Face), then one level up (local Docker)
@@ -46,6 +46,7 @@ class EmotionPredictor:
             return None
 
     def _get_transforms(self):
+        # Reverted to standard ImageNet transforms (224x224 RGB) that ResNet-18 expects
         return transforms.Compose([
             transforms.Resize((224, 224)),
             transforms.ToTensor(),
