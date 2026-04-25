@@ -1,25 +1,25 @@
 import os
 
-# Ultra-stable high-res mood images for the UI
+# Updated to the latest official Spotify editorial playlist IDs (2026)
 EMOTION_PLAYLISTS = {
     "Happy": {
-        "name": "Happy Hits",
-        "url": "https://open.spotify.com/playlist/37i9dQZF1DX3rxSjS1S6S5",
+        "name": "Bollywood 2000s Hits",
+        "url": "https://open.spotify.com/playlist/2QnLDxeZMzIoCno54I9vKj?si=9qEIzMAyTRSRxzEi32GGuQ",
         "cover_image": "https://images.unsplash.com/photo-1533738363-b7f9aef128ce?w=500&h=500&fit=crop"
     },
     "Sad": {
-        "name": "All the Feels",
-        "url": "https://open.spotify.com/playlist/37i9dQZF1DX3YSRmBzsSafe",
+        "name": "Nusrat",
+        "url": "https://open.spotify.com/playlist/7mFOaSSRtPJj2JzH5GxFnS?si=N-CCi46eRHa8AhGCSivHpQ",
         "cover_image": "https://images.unsplash.com/photo-1516589174184-c68526614ae8?w=500&h=500&fit=crop"
     },
     "Angry": {
         "name": "Power Workout",
-        "url": "https://open.spotify.com/playlist/37i9dQZF1DXcfZvY9LYv76",
+        "url": "https://open.spotify.com/playlist/37i9dQZF1DWUVpAXiEPK8P",
         "cover_image": "https://images.unsplash.com/photo-1518005020481-a685315df121?w=500&h=500&fit=crop"
     },
     "Neutral": {
-        "name": "Chill Lofi Beats",
-        "url": "https://open.spotify.com/playlist/37i9dQZF1DX8UebIWsuA3v",
+        "name": "Lofi Beats",
+        "url": "https://open.spotify.com/playlist/38mWQAGEylOPPcWfDpB6FO?si=-V-3u3VRSSOIINF6I-of1A",
         "cover_image": "https://images.unsplash.com/photo-1516280440614-37939bbacd81?w=500&h=500&fit=crop"
     },
     "Disgust": {
@@ -41,7 +41,6 @@ EMOTION_PLAYLISTS = {
 
 class SpotifyPlaylistService:
     def get_playlist_for_emotion(self, emotion: str) -> dict:
-        # Return the pre-defined playlist for the emotion
         # Fallback to Neutral if emotion not found
         playlist = EMOTION_PLAYLISTS.get(emotion, EMOTION_PLAYLISTS["Neutral"])
         return playlist

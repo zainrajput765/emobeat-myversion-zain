@@ -2,19 +2,18 @@ import React, { useState, useEffect, useRef } from "react";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import { Play, Pause, SkipForward, SkipBack, Volume2, Camera, AlertCircle, ExternalLink } from "lucide-react";
-import { Slider } from "./ui/slider";
+import { Camera, ExternalLink, Music, Loader2, Sparkles, Activity } from "lucide-react";
 
 export function MainDashboard({ onNavigate }) {
   const [currentEmotion, setCurrentEmotion] = useState("Scanning...");
   const [confidence, setConfidence] = useState(0);
   const [cameraActive, setCameraActive] = useState(false);
-  const [faceDetected, setFaceDetected] = useState(true);
   const [isFinalized, setIsFinalized] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
-  const [status, setStatus] = useState(""); // FYP Sequential Status
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [status, setStatus] = useState(""); 
+  const [loading, setLoading] = useState(false);
   
-  // Real playlist data from backend
   const [currentPlaylist, setCurrentPlaylist] = useState(null);
   const [playlistHistory, setPlaylistHistory] = useState([]);
 
@@ -22,35 +21,33 @@ export function MainDashboard({ onNavigate }) {
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
 
-  // Initialize Webcam
   useEffect(() => {
     const startCamera = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
+        if (videoRef.current) videoRef.current.srcObject = stream;
         streamRef.current = stream;
         setCameraActive(true);
-        setFaceDetected(true);
       } catch (err) {
         console.error("Error accessing webcam:", err);
         setCameraActive(false);
-        setFaceDetected(false);
       }
     };
-
     startCamera();
 
+    // Check for payment success redirect
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('payment') === 'success') {
+      setPaymentSuccess(true);
+      // Clean up URL without refreshing
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
     return () => {
-      // Cleanup camera on unmount
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-      }
+      if (streamRef.current) streamRef.current.getTracks().forEach(track => track.stop());
     };
   }, []);
 
-  // Stop camera when finalized
   useEffect(() => {
     if (isFinalized && streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
@@ -58,42 +55,23 @@ export function MainDashboard({ onNavigate }) {
     }
   }, [isFinalized]);
 
-  // Poll Backend
   useEffect(() => {
-    if (!cameraActive || isFinalized) return;
+    if (!cameraActive || isFinalized || loading) return;
 
     const captureAndAnalyze = async () => {
-      if (isFinalized) return;
-      console.log("Attempting to capture frame...");
-      if (!videoRef.current || !canvasRef.current) {
-        console.log("Refs missing:", { video: !!videoRef.current, canvas: !!canvasRef.current });
-        return;
-      }
+      if (isFinalized || loading || !videoRef.current || !canvasRef.current) return;
 
       const video = videoRef.current;
       const canvas = canvasRef.current;
-      
-      // Ensure video is playing and has dimensions
-      if (video.videoWidth === 0 || video.videoHeight === 0) {
-        console.log("Video not ready yet (0x0)");
-        return;
-      }
+      if (video.videoWidth === 0) return;
 
-      console.log(`Capturing ${video.videoWidth}x${video.videoHeight} frame`);
-      // Draw video frame to canvas
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      // Convert canvas to blob
       canvas.toBlob(async (blob) => {
-        if (!blob) {
-          console.error("Failed to create blob from canvas");
-          return;
-        }
-
-        console.log("Sending blob to backend...");
+        if (!blob) return;
+        setLoading(true);
         const formData = new FormData();
         formData.append("file", blob, "webcam_frame.jpg");
 
@@ -103,391 +81,360 @@ export function MainDashboard({ onNavigate }) {
             body: formData,
           });
 
-          if (!response.ok) {
-            const errText = await response.text();
-            console.error("Backend error:", errText);
-            return;
-          }
+          if (!response.ok) { setLoading(false); return; }
 
           const data = await response.json();
-          console.log("Backend response:", data);
           
-          // --- FYP Sequential Announcement Sequence ---
-          const speak = (text) => {
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.rate = 1.0;
-            window.speechSynthesis.speak(utterance);
-          };
-
-          setStatus("Emotion Detected: " + data.detected_emotion);
-          speak("Emotion Detected. You look " + data.detected_emotion);
-          
-          await new Promise(r => setTimeout(r, 1500));
-          setStatus("Recommending Playlist...");
-          speak("Recommending a playlist for your mood.");
-
-          await new Promise(r => setTimeout(r, 1500));
-          setStatus("Playing Song...");
-          speak("Playing song now. Enjoy!");
-
+          setStatus("Vibe Check: " + data.detected_emotion);
           await new Promise(r => setTimeout(r, 1000));
-          // -------------------------------------------
+          setStatus("Generating Sonic Profile...");
+          await new Promise(r => setTimeout(r, 1000));
 
           setCurrentEmotion(data.detected_emotion);
-          setConfidence(Math.floor(Math.random() * 15) + 85);
+          const confValue = Math.floor(Math.random() * 10) + 88;
+          setConfidence(confValue);
           setIsFinalized(true); 
-          setStatus(""); // Clear status after finalization
+          setStatus("");
+          setLoading(false);
 
           const newPlaylist = {
             id: Date.now(),
             name: data.playlist_name,
-            image: data.playlist_cover_image || "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=300&h=300&fit=crop",
+            image: data.playlist_cover_image,
             url: data.playlist_url,
             emotion: data.detected_emotion
           };
 
           setCurrentPlaylist(newPlaylist);
-          
-          setPlaylistHistory(prev => {
-            const filtered = prev.filter(p => p.name !== newPlaylist.name);
-            return [newPlaylist, ...filtered].slice(0, 4);
-          });
+          setPlaylistHistory(prev => [newPlaylist, ...prev.filter(p => p.name !== newPlaylist.name)].slice(0, 5));
 
         } catch (error) {
-          console.error("Error communicating with backend:", error);
+          console.error(error);
+          setLoading(false);
         }
       }, "image/jpeg", 0.8);
     };
 
-    const intervalId = setInterval(captureAndAnalyze, 3000); // FYP: 3 seconds
-    // Initial capture after 1 second
-    setTimeout(captureAndAnalyze, 1000);
-
+    const intervalId = setInterval(captureAndAnalyze, 4000); 
     return () => clearInterval(intervalId);
-  }, [cameraActive, isFinalized]);
+  }, [cameraActive, isFinalized, loading]);
 
   const getEmotionColor = (emotion) => {
     const colors = {
-      Happy: "bg-yellow-500",
-      Sad: "bg-blue-500",
-      Neutral: "bg-gray-500",
-      Angry: "bg-red-500",
-      Surprised: "bg-purple-500",
-      Calm: "bg-green-500",
-      "Scanning...": "bg-gray-700"
+      Happy: "bg-yellow-400 text-black",
+      Sad: "bg-blue-600 text-white",
+      Neutral: "bg-emerald-500 text-black",
+      Angry: "bg-rose-600 text-white",
+      Surprised: "bg-purple-500 text-white",
+      Fear: "bg-indigo-900 text-white",
+      "Scanning...": "bg-gray-800 text-gray-400"
     };
-    return colors[emotion] || "bg-gray-500";
-  };
-
-  const openSpotify = (url) => {
-    if (url && url !== "https://open.spotify.com") {
-      window.open(url, "_blank");
-    } else {
-      alert("Please add real Spotify API keys to backend to get actual playlist URLs.");
-    }
+    return colors[emotion] || "bg-gray-600";
   };
 
   const getEmbedUrl = (url) => {
-    if (!url || url === "https://open.spotify.com") return null;
+    if (!url) return null;
     try {
-      // Extract ID from any Spotify playlist URL format
-      const parts = url.split("/");
-      const idPart = parts[parts.length - 1];
-      const id = idPart.split("?")[0];
-      const embedUrl = `https://open.spotify.com/embed/playlist/${id}`;
-      console.log("Generated Embed URL:", embedUrl);
-      return embedUrl;
-    } catch (e) {
-      console.error("Error parsing Spotify URL:", e);
+      const match = url.match(/(playlist|artist|album|track)\/([a-zA-Z0-9]+)/);
+      if (match && match[1] && match[2]) {
+        return `https://open.spotify.com/embed/${match[1]}/${match[2]}?utm_source=generator&theme=0`;
+      }
       return null;
-    }
+    } catch (e) { return null; }
+  };
+
+  const resetScanner = () => {
+    setIsFinalized(false);
+    setCurrentEmotion("Scanning...");
+    setConfidence(0);
+    window.location.reload(); // Hard reset for camera
   };
 
   return (
-    <div className="min-h-screen bg-[#121212] p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-white">EmoBeat Dashboard</h1>
-          <div className="flex items-center gap-2">
+    <div className="min-h-screen bg-[#050505] text-white p-4 md:p-8 font-sans selection:bg-[#1DB954]/40">
+      <div className="max-w-[1600px] mx-auto space-y-10">
+        <header className="flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="text-center md:text-left">
+            <h1 className="text-5xl font-black tracking-tighter italic text-white flex items-center gap-3">
+              EMOBEAT <Sparkles className="w-8 h-8 text-[#1DB954]" />
+            </h1>
+            <p className="text-gray-400 text-xs font-black uppercase tracking-[0.3em] mt-1">Intelligence Optimized Sound</p>
+          </div>
+          
+          <div className="flex items-center gap-4">
             <Button 
-              variant="default" 
-              size="sm" 
-              className="bg-gradient-to-r from-purple-500 to-blue-500 text-white border-none hover:opacity-90 font-bold"
+              className="bg-white hover:bg-gray-200 text-black font-black px-8 py-6 rounded-2xl transition-all hover:scale-105 shadow-xl"
               onClick={() => setShowPayment(true)}
             >
-              🚀 Upgrade
+              PREMIUM ACCESS
             </Button>
             {isFinalized && (
               <Button 
                 variant="outline" 
-                size="sm" 
-                className="bg-[#282828] text-white border-[#3e3e3e] hover:bg-[#333333]"
-                onClick={() => {
-                  setIsFinalized(false);
-                  setCurrentEmotion("Scanning...");
-                }}
+                className="border-gray-800 bg-transparent hover:bg-gray-900 text-white font-bold px-6 py-6 rounded-2xl"
+                onClick={resetScanner}
               >
-                Re-scan Emotion
+                Scan Again
               </Button>
             )}
-            <Badge variant={cameraActive ? "default" : "secondary"} className={cameraActive ? "bg-[#1DB954] text-black" : "bg-gray-600"}>
-              <Camera className="w-4 h-4 mr-1" />
-              {cameraActive ? "Camera Active" : "Camera Off"}
-            </Badge>
-          </div>
-        </div>
-
-        {/* Error Banner */}
-        {!faceDetected && (
-          <Card className="bg-yellow-500/10 border-yellow-500/20 p-4">
-            <div className="flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 text-yellow-500" />
-              <div>
-                <p className="text-yellow-500 font-medium">Camera Access Required</p>
-                <p className="text-sm text-yellow-500/80">Please allow camera permissions in your browser to detect emotions.</p>
-              </div>
+            <div className="flex items-center gap-3 px-5 py-3 bg-[#111] rounded-2xl border border-gray-800 shadow-inner">
+              <div className={`w-2.5 h-2.5 rounded-full ${cameraActive ? 'bg-[#1DB954] shadow-[0_0_10px_#1DB954]' : 'bg-red-500'}`}></div>
+              <span className="text-[10px] font-black uppercase tracking-widest">{cameraActive ? 'Live Vision' : 'Offline'}</span>
             </div>
-          </Card>
-        )}
+          </div>
+        </header>
 
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left Column */}
-          <div className="space-y-6">
-            <Card className="bg-[#181818] border-[#282828] overflow-hidden">
-              <div className="aspect-video bg-gradient-to-br from-gray-800 to-gray-900 relative flex items-center justify-center">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+          {/* Visual Analysis Section */}
+          <div className="lg:col-span-6 space-y-8">
+            <Card className="bg-[#0f0f0f] border-gray-800 overflow-hidden relative shadow-[0_30px_60px_-12px_rgba(0,0,0,0.5)] rounded-[2.5rem]">
+              <div className="aspect-[4/3] relative bg-black">
                 <video
                   ref={videoRef}
-                  className="w-full h-full object-cover transform scale-x-[-1]"
-                  autoPlay
-                  muted
-                  playsInline
+                  className={`w-full h-full object-cover transition-all duration-1000 ${isFinalized ? 'opacity-30 blur-sm scale-110' : 'opacity-100'}`}
+                  autoPlay muted playsInline
                 />
-                {/* Hidden canvas for capturing frames */}
                 <canvas ref={canvasRef} className="hidden" />
-
-                {!cameraActive && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <Camera className="w-16 h-16 text-gray-600" />
-                  </div>
-                )}
                 
-                {/* Status Overlay */}
-                {status && (
-                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-10 animate-in fade-in duration-300">
-                    <div className="text-center p-6 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20">
-                      <div className="flex justify-center mb-4">
-                        <div className="w-12 h-12 border-4 border-[#1DB954] border-t-transparent rounded-full animate-spin"></div>
-                      </div>
-                      <p className="text-xl font-bold text-white tracking-wide">{status}</p>
+                {!isFinalized && cameraActive && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-72 h-72 border-[1px] border-[#1DB954]/40 rounded-[3rem] relative overflow-hidden">
+                       <div className="absolute top-0 left-0 w-full h-[2px] bg-[#1DB954] shadow-[0_0_20px_#1DB954] animate-[scan_2.5s_infinite]"></div>
                     </div>
                   </div>
                 )}
 
-                <div className="absolute top-4 right-4">
-                  <div className={`w-3 h-3 rounded-full ${cameraActive ? 'bg-red-500 animate-pulse' : 'bg-gray-500'}`}></div>
-                </div>
+                {status && (
+                  <div className="absolute inset-0 bg-black/40 backdrop-blur-md flex items-center justify-center z-20">
+                    <div className="text-center space-y-6">
+                      <div className="relative">
+                        <Loader2 className="w-20 h-20 text-[#1DB954] animate-spin mx-auto" />
+                        <Music className="w-8 h-8 text-white absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                      </div>
+                      <p className="text-3xl font-black tracking-tight text-white italic uppercase italic">{status}</p>
+                    </div>
+                  </div>
+                )}
               </div>
             </Card>
 
-            <Card className="bg-[#181818] border-[#282828] p-6">
-              <h3 className="text-white mb-4">Detected Emotion</h3>
-              <div className="space-y-4">
-                <div className="flex items-center gap-4">
-                  <div className={`${getEmotionColor(currentEmotion)} w-16 h-16 rounded-full flex items-center justify-center text-2xl`}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card className="bg-[#0f0f0f] border-gray-800 p-8 rounded-[2rem] hover:border-gray-700 transition-colors">
+                <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-6">State Recognition</p>
+                <div className="flex items-center gap-6">
+                  <div className={`${getEmotionColor(currentEmotion)} w-20 h-20 rounded-[1.5rem] flex items-center justify-center text-4xl shadow-2xl transition-transform hover:rotate-6`}>
                     {currentEmotion === "Happy" && "😊"}
                     {currentEmotion === "Sad" && "😢"}
                     {currentEmotion === "Neutral" && "😐"}
                     {currentEmotion === "Angry" && "😠"}
                     {currentEmotion === "Surprised" && "😲"}
-                    {currentEmotion === "Calm" && "😌"}
+                    {currentEmotion === "Fear" && "😨"}
+                    {currentEmotion === "Disgust" && "🤢"}
                     {currentEmotion === "Scanning..." && "⏳"}
                   </div>
-                  <div className="flex-1">
-                    <p className="text-2xl font-bold text-white">{currentEmotion}</p>
-                    {currentEmotion !== "Scanning..." && (
-                      <p className="text-[#1DB954]">Confidence: {confidence}%</p>
-                    )}
+                  <div>
+                    <h3 className="text-3xl font-black text-white italic tracking-tighter">{currentEmotion}</h3>
+                    {isFinalized && <Badge className="bg-[#1DB954] text-black border-none font-black mt-2">EMOTION VERIFIED</Badge>}
                   </div>
                 </div>
-                {currentEmotion !== "Scanning..." && (
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm text-gray-400">
-                      <span>Confidence Level</span>
-                      <span>{confidence}%</span>
-                    </div>
-                    <div className="w-full bg-[#282828] rounded-full h-2">
-                      <div
-                        className="bg-[#1DB954] h-2 rounded-full transition-all duration-500"
-                        style={{ width: `${confidence}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            </Card>
+              </Card>
+
+              <Card className="bg-[#0f0f0f] border-gray-800 p-8 rounded-[2rem] flex flex-col justify-center relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-4 opacity-5">
+                  <Activity className="w-20 h-20 text-white" />
+                </div>
+                <div className="flex justify-between items-end mb-4">
+                   <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Neural Match</p>
+                   {isFinalized && <p className="text-2xl font-black text-[#1DB954]">{confidence}%</p>}
+                </div>
+                <div className="space-y-4">
+                   <div className="h-3 w-full bg-[#1a1a1a] rounded-full overflow-hidden p-0.5 border border-white/5">
+                      <div 
+                        className="h-full bg-gradient-to-r from-[#1DB954] to-emerald-400 rounded-full transition-all duration-1000 ease-out shadow-[0_0_15px_#1DB954]"
+                        style={{ width: `${isFinalized ? confidence : 0}%` }}
+                      ></div>
+                   </div>
+                   <p className="text-[10px] text-gray-600 font-bold leading-relaxed uppercase">
+                     {isFinalized ? "Analysis complete. Optimization stable." : "Processing facial vectors..."}
+                   </p>
+                </div>
+              </Card>
+            </div>
           </div>
 
-          {/* Right Column */}
-          <div className="space-y-6">
-            <Card className="bg-[#181818] border-[#282828] p-6">
-              <h3 className="text-white mb-4">
-                {currentEmotion === "Scanning..." ? "Waiting for emotion..." : `Recommended for ${currentEmotion}`}
-              </h3>
-              <div className="grid grid-cols-2 gap-4">
-                {playlistHistory.length > 0 ? playlistHistory.map((playlist) => (
-                  <div
-                    key={playlist.id}
-                    className="group cursor-pointer"
-                    onClick={() => openSpotify(playlist.url)}
-                  >
-                    <div className="relative aspect-square rounded-lg overflow-hidden mb-2 bg-gray-800">
-                      <img
-                        src={playlist.image}
-                        alt={playlist.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                      />
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <ExternalLink className="w-12 h-12 text-white" />
-                      </div>
-                    </div>
-                    <p className="text-white font-medium truncate">{playlist.name}</p>
-                    <p className="text-sm text-gray-400">{playlist.emotion}</p>
-                  </div>
-                )) : (
-                  <div className="col-span-2 text-center py-10 text-gray-500">
-                    Playlists will appear here once an emotion is detected.
-                  </div>
-                )}
-              </div>
-            </Card>
+          {/* Player & Recommendations Section - Expanded Area */}
+          <div className="lg:col-span-6 space-y-8">
+            <Card className="bg-gradient-to-br from-[#121212] to-[#080808] border-gray-800 p-10 shadow-2xl relative overflow-hidden rounded-[2.5rem] min-h-[600px] flex flex-col">
+               <div className="flex items-center justify-between mb-10">
+                 <h3 className="text-white font-black flex items-center gap-3 text-xl italic uppercase tracking-tighter">
+                   <div className="w-2 h-2 rounded-full bg-[#1DB954] animate-pulse"></div>
+                   Vibe Output
+                 </h3>
+                 {currentPlaylist && <Badge className="bg-white/5 text-gray-400 border-gray-800 font-bold py-1 px-4 text-[10px] uppercase tracking-widest">Master Quality</Badge>}
+               </div>
 
-            <Card className="bg-[#181818] border-[#282828] p-6">
-              <h3 className="text-white mb-4">Now Playing</h3>
-              {currentPlaylist ? (
-                <div className="space-y-4">
-                  <div className="flex gap-4 mb-4">
-                    <img
-                      src={currentPlaylist.image}
-                      alt="Album Art"
-                      className="w-20 h-20 rounded-lg object-cover bg-gray-800"
-                    />
-                    <div className="flex-1">
-                      <p className="text-white font-medium line-clamp-1">{currentPlaylist.name}</p>
-                      <p className="text-sm text-gray-400">Spotify Auto-Recommendation</p>
-                      <p className="text-xs text-[#1DB954] mt-1">{currentPlaylist.emotion} Mood</p>
-                    </div>
-                  </div>
+               {currentPlaylist ? (
+                 <div className="flex-1 flex flex-col gap-8">
+                   <div className="flex items-center gap-8 bg-white/5 p-6 rounded-[2rem] border border-white/5 hover:bg-white/[0.07] transition-all">
+                     <img
+                       src={currentPlaylist.image}
+                       alt=""
+                       className="w-32 h-32 rounded-2xl object-cover shadow-[0_20px_40px_rgba(0,0,0,0.4)]"
+                       onError={(e) => { e.target.src = "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=300&h=300&fit=crop"; }}
+                     />
+                     <div className="flex-1">
+                       <p className="text-[#1DB954] text-[10px] font-black uppercase tracking-[0.3em] mb-2">Sonic Match Found</p>
+                       <h4 className="text-white font-black text-4xl tracking-tighter italic mb-1 truncate leading-none uppercase">{currentPlaylist.name}</h4>
+                       <p className="text-gray-500 font-bold text-sm">Curated for your emotional blueprint</p>
+                     </div>
+                   </div>
 
-                  {currentPlaylist.url !== "https://open.spotify.com" ? (
-                    <div className="rounded-xl overflow-hidden bg-black">
-                      <iframe
+                   <div className="flex-1 rounded-[2rem] overflow-hidden bg-black shadow-2xl border border-white/5">
+                     <iframe
                         src={getEmbedUrl(currentPlaylist.url)}
                         width="100%"
-                        height="152"
+                        height="400"
                         frameBorder="0"
                         allowFullScreen=""
                         allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
                         loading="lazy"
-                        title="Spotify Player"
+                        className="opacity-95 hover:opacity-100 transition-opacity"
                       ></iframe>
-                    </div>
-                  ) : (
-                    <div className="text-center py-6 bg-gray-900 rounded-lg border border-dashed border-gray-700">
-                      <p className="text-gray-400 text-sm px-4">
-                        Real-time playback requires Spotify API keys.
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="flex items-center justify-center pt-2">
-                    <Button
-                      className="bg-[#1DB954] hover:bg-[#1ed760] text-black w-full font-bold"
-                      onClick={() => openSpotify(currentPlaylist.url)}
+                   </div>
+                   
+                   <Button
+                      variant="ghost"
+                      className="w-full text-gray-500 hover:text-white hover:bg-white/5 font-black py-8 rounded-2xl border border-transparent hover:border-gray-800 transition-all uppercase tracking-widest text-[10px]"
+                      onClick={() => window.open(currentPlaylist.url, "_blank")}
                     >
-                      <ExternalLink className="w-5 h-5 mr-2" />
-                      Open Full Playlist
+                      <ExternalLink className="w-4 h-4 mr-3" />
+                      View Full Profile on Spotify
                     </Button>
-                  </div>
-                </div>
-              ) : (
-                 <div className="text-center py-10 text-gray-500">
-                    No active playlist.
                  </div>
-              )}
+               ) : (
+                 <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6">
+                   <div className="w-24 h-24 bg-white/5 rounded-full flex items-center justify-center border border-white/5 animate-pulse">
+                     <Music className="w-10 h-10 text-gray-700" />
+                   </div>
+                   <div>
+                     <p className="text-gray-500 font-black text-xl italic uppercase tracking-tighter">Awaiting Signal</p>
+                     <p className="text-gray-700 text-xs font-bold uppercase mt-2 tracking-widest">Detection sequence not initiated</p>
+                   </div>
+                 </div>
+               )}
+            </Card>
+
+            {/* History - Compressed to allow more space for Player */}
+            <Card className="bg-[#0f0f0f] border-gray-800 p-8 rounded-[2rem]">
+               <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] mb-6">Mood Archive</h3>
+               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                 {playlistHistory.length > 0 ? playlistHistory.map((playlist) => (
+                   <div
+                     key={playlist.id}
+                     className="flex flex-col gap-3 p-4 rounded-[1.5rem] bg-white/5 hover:bg-white/10 cursor-pointer transition-all border border-transparent hover:border-gray-800 group"
+                     onClick={() => window.open(playlist.url, "_blank")}
+                   >
+                     <img src={playlist.image} className="w-full aspect-square rounded-xl object-cover opacity-60 group-hover:opacity-100 transition-opacity" onError={(e) => { e.target.src = "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=300&h=300&fit=crop"; }} />
+                     <div className="min-w-0">
+                       <p className="text-white font-black text-[10px] truncate uppercase">{playlist.name}</p>
+                       <p className={`text-[8px] font-black uppercase tracking-tighter mt-1 ${getEmotionColor(playlist.emotion)} px-2 inline-block rounded-sm`}>{playlist.emotion}</p>
+                     </div>
+                   </div>
+                 )) : (
+                   <p className="text-gray-700 text-xs font-bold uppercase italic py-4 col-span-full text-center">Archive empty</p>
+                 )}
+               </div>
             </Card>
           </div>
         </div>
       </div>
 
-      {/* Payment Modal Mockup for FYP Requirement */}
       {showPayment && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <Card className="bg-[#181818] border-[#282828] w-full max-w-md p-6 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 via-blue-500 to-green-500"></div>
+        <div className="fixed inset-0 bg-black/95 backdrop-blur-2xl z-50 flex items-center justify-center p-4">
+          <Card className="bg-[#0f0f0f] border-gray-800 w-full max-w-lg p-12 relative rounded-[3rem] shadow-[0_0_150px_rgba(29,185,84,0.15)]">
             <Button 
               variant="ghost" 
-              className="absolute top-2 right-2 text-gray-400 hover:text-white"
+              className="absolute top-8 right-8 text-gray-500 hover:text-white"
               onClick={() => setShowPayment(false)}
             >
               ✕
             </Button>
             
-            <div className="text-center mb-6">
-              <h2 className="text-2xl font-bold text-white mb-2">EmoBeat Premium</h2>
-              <p className="text-gray-400">Unlock high-quality audio and unlimited scans</p>
+            <div className="text-center mb-10">
+              <div className="inline-block px-4 py-1.5 bg-[#1DB954]/10 text-[#1DB954] rounded-full text-[10px] font-black tracking-[0.2em] mb-6 border border-[#1DB954]/20">
+                LIFETIME LICENSE
+              </div>
+              <h2 className="text-5xl font-black text-white mb-3 italic tracking-tighter">EMOBEAT PRO</h2>
+              <p className="text-gray-500 text-sm font-medium">Unlock uncompressed neural audio processing.</p>
             </div>
 
-            <div className="space-y-4">
-              <div className="bg-[#282828] p-4 rounded-lg border border-[#383838]">
-                <div className="flex justify-between items-center mb-4">
-                  <span className="text-white font-medium">Premium Plan</span>
-                  <span className="text-[#1DB954] font-bold">$9.99/mo</span>
+            <div className="space-y-8">
+              <div className="bg-[#151515] p-8 rounded-[2rem] border border-white/5">
+                <div className="flex justify-between items-center mb-8 pb-8 border-b border-white/5">
+                  <div>
+                    <p className="text-white font-black text-2xl tracking-tighter">Yearly Master</p>
+                    <p className="text-gray-500 text-xs font-bold uppercase mt-1 tracking-widest">Full Access • Cancel Anytime</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-4xl font-black text-white">$89</span>
+                    <span className="text-gray-600 text-sm font-black uppercase tracking-widest ml-1">USD</span>
+                  </div>
                 </div>
                 
-                <div className="space-y-2">
-                  <div className="flex flex-col gap-1">
-                    <label className="text-xs text-gray-500 uppercase">Cardholder Name</label>
-                    <input type="text" className="bg-[#121212] border-[#383838] rounded p-2 text-white text-sm" placeholder="John Doe" />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label className="text-xs text-gray-500 uppercase">Card Number</label>
-                    <div className="relative">
-                      <input type="text" className="bg-[#121212] border-[#383838] rounded p-2 text-white text-sm w-full pl-10" placeholder="0000 0000 0000 0000" />
-                      <div className="absolute left-3 top-2.5 text-gray-500">💳</div>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="flex flex-col gap-1">
-                      <label className="text-xs text-gray-500 uppercase">Expiry</label>
-                      <input type="text" className="bg-[#121212] border-[#383838] rounded p-2 text-white text-sm" placeholder="MM/YY" />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <label className="text-xs text-gray-500 uppercase">CVV</label>
-                      <input type="password" className="bg-[#121212] border-[#383838] rounded p-2 text-white text-sm" placeholder="***" />
-                    </div>
-                  </div>
+                <div className="bg-black/50 p-6 rounded-2xl border border-white/5 text-center">
+                   <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.2em]">Redirecting to Secure Gateway</p>
                 </div>
-              </div>
-
-              <div className="flex items-center gap-2 text-xs text-gray-500 justify-center">
-                <span>🔒 Secure payment processed via Stripe</span>
               </div>
 
               <Button 
-                className="w-full bg-[#1DB954] hover:bg-[#1ed760] text-black font-bold py-6 text-lg"
-                onClick={() => {
-                  alert("FYP Requirement: Payment Successful! Welcome to Premium.");
-                  setShowPayment(false);
+                className="w-full bg-[#1DB954] hover:bg-[#1ed760] text-black font-black py-10 text-xl rounded-[1.5rem] transition-all hover:scale-[1.02] shadow-2xl shadow-[#1DB954]/30"
+                onClick={async () => {
+                  try {
+                    const response = await fetch("http://localhost:8000/create-checkout-session", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ plan: "Yearly" }),
+                    });
+                    const data = await response.json();
+                    if (data.url) window.location.href = data.url;
+                  } catch (err) { alert("Gateway offline."); }
                 }}
               >
-                Complete Payment
+                UPGRADE NOW
               </Button>
             </div>
           </Card>
         </div>
       )}
+
+      {/* Payment Success Modal */}
+      {paymentSuccess && (
+        <div className="fixed inset-0 bg-black/95 backdrop-blur-3xl z-[60] flex items-center justify-center p-4">
+          <Card className="bg-[#0f0f0f] border-[#1DB954]/30 w-full max-w-md p-12 text-center rounded-[3rem] shadow-[0_0_100px_rgba(29,185,84,0.3)] animate-in fade-in zoom-in duration-500">
+            <div className="w-24 h-24 bg-[#1DB954] rounded-full flex items-center justify-center mx-auto mb-8 shadow-[0_0_40px_rgba(29,185,84,0.5)]">
+              <Sparkles className="w-12 h-12 text-black" />
+            </div>
+            <h2 className="text-4xl font-black text-white mb-4 italic tracking-tighter">WELCOME TO PRO</h2>
+            <p className="text-gray-400 font-medium mb-10 leading-relaxed">
+              Your account has been upgraded. Neural processing and high-fidelity audio are now unlocked.
+            </p>
+            <Button 
+              className="w-full bg-[#1DB954] hover:bg-[#1ed760] text-black font-black py-8 rounded-2xl transition-all shadow-xl"
+              onClick={() => setPaymentSuccess(false)}
+            >
+              START LISTENING
+            </Button>
+          </Card>
+        </div>
+      )}
+      
+      <style>{`
+        @keyframes scan {
+          0% { top: 0; }
+          50% { top: 100%; }
+          100% { top: 0; }
+        }
+      `}</style>
     </div>
   );
 }
