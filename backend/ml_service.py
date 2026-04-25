@@ -46,13 +46,10 @@ class EmotionPredictor:
             return None
 
     def _get_transforms(self):
-        # FER2013 images are grayscale - convert to grayscale then back to 3-channel
-        # This matches the training distribution more closely
         return transforms.Compose([
-            transforms.Grayscale(num_output_channels=3),
-            transforms.Resize((48, 48)),
+            transforms.Resize((224, 224)),
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
         ])
 
     def predict_emotion(self, image_bytes: bytes) -> str:

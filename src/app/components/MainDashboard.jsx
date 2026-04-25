@@ -104,15 +104,15 @@ export function MainDashboard({ onNavigate }) {
             const y = f.y * overlay.height;
             const w = f.w * overlay.width;
             const h = f.h * overlay.height;
-            // Draw glowing green box
+            
+            // Futuristic Face Lock UI
             ctx.strokeStyle = '#1DB954';
-            ctx.lineWidth = 3;
             ctx.shadowColor = '#1DB954';
             ctx.shadowBlur = 15;
-            ctx.strokeRect(x, y, w, h);
-            // Corner accents
-            const cs = 20;
-            ctx.lineWidth = 4;
+            
+            // Corner brackets
+            const cs = Math.min(w, h) * 0.15; // Corner size relative to face
+            ctx.lineWidth = 3;
             [[x,y],[x+w,y],[x,y+h],[x+w,y+h]].forEach(([cx, cy]) => {
               ctx.beginPath();
               ctx.moveTo(cx + (cx === x ? cs : -cs), cy);
@@ -120,6 +120,34 @@ export function MainDashboard({ onNavigate }) {
               ctx.lineTo(cx, cy + (cy === y ? cs : -cs));
               ctx.stroke();
             });
+
+            // Center crosshair target
+            const centerX = x + w/2;
+            const centerY = y + h/2;
+            const chs = 10;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(centerX - chs, centerY);
+            ctx.lineTo(centerX + chs, centerY);
+            ctx.moveTo(centerX, centerY - chs);
+            ctx.lineTo(centerX, centerY + chs);
+            ctx.stroke();
+
+            // Animated scanning laser line
+            const time = Date.now() / 1000;
+            const scanY = y + (Math.sin(time * 4) + 1) / 2 * h;
+            ctx.beginPath();
+            ctx.moveTo(x, scanY);
+            ctx.lineTo(x + w, scanY);
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = 'rgba(29, 185, 84, 0.7)';
+            ctx.stroke();
+
+            // Sci-fi data readout
+            ctx.fillStyle = '#1DB954';
+            ctx.font = 'bold 10px monospace';
+            ctx.fillText(`TARGET LOCKED // ID: ${Math.floor(time*1000).toString().slice(-4)}`, x, y - 15);
+            ctx.fillText(`COORD: ${Math.floor(x)},${Math.floor(y)}`, x, y - 5);
           }
         } catch(e) { /* silent */ }
       }, 'image/jpeg', 0.5);
@@ -329,23 +357,32 @@ export function MainDashboard({ onNavigate }) {
                     </div>
                   </div>
                 )}
+
+                {/* Sleek Floating Guidance HUD */}
+                {!isFinalized && cameraActive && (
+                  <div className="absolute bottom-4 left-4 right-4 flex justify-between items-end pointer-events-none z-10">
+                    <div className="flex flex-col gap-2">
+                      <div className="bg-black/60 backdrop-blur-md border border-white/10 px-3 py-1.5 rounded-md flex items-center gap-2 w-max">
+                        <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></div>
+                        <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest">Sys.Ready</span>
+                      </div>
+                      <div className="bg-black/60 backdrop-blur-md border border-white/10 px-3 py-1.5 rounded-md flex items-center gap-2 w-max">
+                        <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest">Lighting: Optimal</span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-col gap-2 items-end">
+                      <div className="bg-black/60 backdrop-blur-md border border-white/10 px-3 py-1.5 rounded-md text-right">
+                        <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest">Face Camera Directly</span>
+                      </div>
+                      <div className="bg-black/60 backdrop-blur-md border border-white/10 px-3 py-1.5 rounded-md text-right">
+                        <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest">Hold Still For Scan</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Guidance Strip */}
-              {!isFinalized && cameraActive && (
-                <div className="px-6 py-3 bg-black/80 border-t border-white/5 flex items-center justify-center gap-6 flex-wrap">
-                  {[
-                    { icon: "💡", text: "Good lighting" },
-                    { icon: "👤", text: "One person only" },
-                    { icon: "🧍", text: "Stay still" },
-                    { icon: "📷", text: "Face the camera" },
-                  ].map((tip, i) => (
-                    <span key={i} className="text-[10px] font-black text-gray-600 uppercase tracking-widest flex items-center gap-1.5">
-                      <span>{tip.icon}</span> {tip.text}
-                    </span>
-                  ))}
-                </div>
-              )}
             </Card>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
