@@ -79,9 +79,8 @@ class EmotionPredictor:
                 pil_image = Image.fromarray(cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB))
                 print(f"DEBUG: Face detected and cropped at ({x}, {y}, {w}, {h})")
             else:
-                # Fallback to whole image if no face detected (better than failing)
-                pil_image = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-                print("DEBUG: No face detected, using full image.")
+                print("DEBUG: No face detected. Rejecting scan.")
+                raise ValueError("No face detected in the frame. Please ensure your face is visible.")
 
             # 3. Apply transforms and run inference
             try:

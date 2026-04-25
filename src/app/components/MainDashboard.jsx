@@ -224,11 +224,18 @@ export function MainDashboard({ onNavigate }) {
           setLoading(false);
         }
       }, "image/jpeg", 0.8);
+      }, "image/jpeg", 0.8);
     };
 
-    const intervalId = setInterval(captureAndAnalyze, 4000); 
-    return () => clearInterval(intervalId);
-  }, [cameraActive, isFinalized, loading]);
+    // Only run the capture if we have exactly one face locked
+    let intervalId;
+    if (faceStatus === 'ok') {
+      intervalId = setInterval(captureAndAnalyze, 4000); 
+    }
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [cameraActive, isFinalized, loading, faceStatus]);
 
   const getEmotionColor = (emotion) => {
     const colors = {
