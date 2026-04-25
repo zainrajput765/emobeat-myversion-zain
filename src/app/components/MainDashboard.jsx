@@ -110,6 +110,17 @@ export function MainDashboard({ onNavigate }) {
           setCurrentPlaylist(newPlaylist);
           setPlaylistHistory(prev => [newPlaylist, ...prev.filter(p => p.name !== newPlaylist.name)].slice(0, 5));
 
+          // Save scan to localStorage for admin analytics
+          try {
+            const history = JSON.parse(localStorage.getItem("emobeat_scan_history") || "[]");
+            history.push({
+              emotion: data.detected_emotion,
+              playlist: data.playlist_name,
+              timestamp: new Date().toISOString()
+            });
+            localStorage.setItem("emobeat_scan_history", JSON.stringify(history));
+          } catch(e) { /* silent fail */ }
+
         } catch (error) {
           console.error(error);
           setLoading(false);

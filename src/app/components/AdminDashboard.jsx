@@ -1,228 +1,212 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
-import { Activity, Users, Music, AlertTriangle, TrendingUp, Server, Database } from "lucide-react";
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { Button } from "./ui/button";
+import { Activity, Users, Music, TrendingUp, Lock, Eye, EyeOff, ShieldCheck } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
 
-const usageData = [
-  { date: "Jan 1", sessions: 45, users: 28 },
-  { date: "Jan 2", sessions: 52, users: 31 },
-  { date: "Jan 3", sessions: 48, users: 29 },
-  { date: "Jan 4", sessions: 61, users: 38 },
-  { date: "Jan 5", sessions: 55, users: 34 },
-  { date: "Jan 6", sessions: 67, users: 42 },
-];
+const ADMIN_PASSWORD = "emobeat@admin2026";
 
-const emotionData = [
-  { emotion: "Happy", count: 245 },
-  { emotion: "Calm", count: 189 },
-  { emotion: "Neutral", count: 156 },
-  { emotion: "Sad", count: 98 },
-  { emotion: "Energetic", count: 134 },
-  { emotion: "Surprised", count: 67 },
-];
+// Helper: read real stats from localStorage
+function loadStats() {
+  try {
+    return JSON.parse(localStorage.getItem("emobeat_scan_history") || "[]");
+  } catch {
+    return [];
+  }
+}
 
-const systemMetrics = [
-  { name: "API Response Time", value: "125ms", status: "healthy", icon: Server },
-  { name: "Database Queries", value: "1.2k/min", status: "healthy", icon: Database },
-  { name: "Active Sessions", value: "42", status: "healthy", icon: Activity },
-  { name: "Error Rate", value: "0.3%", status: "warning", icon: AlertTriangle },
-];
+function buildEmotionDistribution(scans) {
+  const counts = {};
+  scans.forEach(s => {
+    counts[s.emotion] = (counts[s.emotion] || 0) + 1;
+  });
+  return Object.entries(counts).map(([emotion, count]) => ({ emotion, count }));
+}
 
-const recentErrors = [
-  { id: 1, time: "2:45 PM", type: "Camera Access", message: "User denied camera permission", severity: "warning" },
-  { id: 2, time: "1:30 PM", type: "Spotify API", message: "Rate limit exceeded", severity: "error" },
-  { id: 3, time: "12:15 PM", type: "Face Detection", message: "Low light condition detected", severity: "info" },
-  { id: 4, time: "11:20 AM", type: "Network", message: "Slow connection detected", severity: "warning" },
-];
+function buildDailyTrend(scans) {
+  const days = {};
+  scans.forEach(s => {
+    const d = new Date(s.timestamp).toLocaleDateString("en-GB", { month: "short", day: "numeric" });
+    days[d] = (days[d] || 0) + 1;
+  });
+  return Object.entries(days).slice(-7).map(([date, scans]) => ({ date, scans }));
+}
 
-export function AdminDashboard() {
-  const getSeverityColor = (severity) => {
-    switch (severity) {
-      case "error":
-        return "bg-red-500/20 text-red-500 border-red-500/30";
-      case "warning":
-        return "bg-yellow-500/20 text-yellow-500 border-yellow-500/30";
-      case "info":
-        return "bg-blue-500/20 text-blue-500 border-blue-500/30";
-      default:
-        return "bg-gray-500/20 text-gray-400 border-gray-500/30";
+// --- Admin Login Gate ---
+function AdminLogin({ onSuccess }) {
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState(false);
+  const [show, setShow] = useState(false);
+
+  const handleLogin = () => {
+    if (password === ADMIN_PASSWORD) {
+      onSuccess();
+    } else {
+      setError(true);
+      setTimeout(() => setError(false), 2000);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#121212] p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen bg-[#050505] flex items-center justify-center p-4">
+      <Card className={`bg-[#0f0f0f] border-gray-800 w-full max-w-md p-12 rounded-[3rem] text-center transition-all duration-300 ${error ? "border-red-500/50 shadow-[0_0_40px_rgba(239,68,68,0.2)]" : "shadow-[0_0_60px_rgba(29,185,84,0.1)]"}`}>
+        <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-8 transition-all ${error ? "bg-red-500/20" : "bg-[#1DB954]/10"}`}>
+          <Lock className={`w-10 h-10 transition-all ${error ? "text-red-500" : "text-[#1DB954]"}`} />
+        </div>
+        <h2 className="text-3xl font-black text-white italic tracking-tighter mb-2">ADMIN ACCESS</h2>
+        <p className="text-gray-500 text-xs font-bold uppercase tracking-widest mb-10">Restricted Area · Authorized Only</p>
+
+        <div className="relative mb-4">
+          <input
+            type={show ? "text" : "password"}
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && handleLogin()}
+            placeholder="Enter admin password"
+            className={`w-full bg-[#151515] border rounded-2xl px-6 py-4 text-white placeholder-gray-600 outline-none transition-all font-mono text-sm ${error ? "border-red-500" : "border-gray-800 focus:border-[#1DB954]"}`}
+          />
+          <button
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-white transition-colors"
+            onClick={() => setShow(!show)}
+          >
+            {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
+        </div>
+
+        {error && <p className="text-red-400 text-xs font-bold uppercase tracking-widest mb-4 animate-pulse">⛔ Incorrect password</p>}
+
+        <Button
+          className="w-full bg-[#1DB954] hover:bg-[#1ed760] text-black font-black py-7 rounded-2xl transition-all hover:scale-[1.02] shadow-xl"
+          onClick={handleLogin}
+        >
+          <ShieldCheck className="w-5 h-5 mr-2" /> AUTHENTICATE
+        </Button>
+      </Card>
+    </div>
+  );
+}
+
+// --- Main Admin Dashboard ---
+export function AdminDashboard() {
+  const [authenticated, setAuthenticated] = useState(false);
+  const [scans, setScans] = useState([]);
+
+  useEffect(() => {
+    if (authenticated) {
+      setScans(loadStats());
+    }
+  }, [authenticated]);
+
+  if (!authenticated) {
+    return <AdminLogin onSuccess={() => setAuthenticated(true)} />;
+  }
+
+  const emotionDist = buildEmotionDistribution(scans);
+  const dailyTrend = buildDailyTrend(scans);
+  const totalScans = scans.length;
+  const uniqueDays = new Set(scans.map(s => new Date(s.timestamp).toDateString())).size;
+  const topEmotion = emotionDist.sort((a, b) => b.count - a.count)[0]?.emotion || "N/A";
+  const avgPerDay = uniqueDays > 0 ? (totalScans / uniqueDays).toFixed(1) : 0;
+
+  return (
+    <div className="min-h-screen bg-[#050505] p-6 md:p-10">
+      <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="space-y-2">
-            <h1 className="text-3xl font-bold text-white">Admin Dashboard</h1>
-            <p className="text-gray-400">System monitoring and analytics</p>
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-4xl font-black text-white italic tracking-tighter">ADMIN PANEL</h1>
+            <p className="text-gray-500 text-xs uppercase tracking-widest font-bold mt-1">Real-Time System Analytics</p>
           </div>
-          <Badge className="bg-[#1DB954] text-black">
-            <Activity className="w-4 h-4 mr-1" />
-            All Systems Operational
+          <Badge className="bg-[#1DB954]/10 text-[#1DB954] border border-[#1DB954]/30 font-bold px-4 py-2">
+            <ShieldCheck className="w-4 h-4 mr-2" /> Authenticated Session
           </Badge>
         </div>
 
-        {/* Key Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="bg-[#181818] border-[#282828] p-6">
-            <div className="flex items-center gap-3">
-              <div className="bg-[#1DB954]/20 p-3 rounded-lg">
-                <Users className="w-6 h-6 text-[#1DB954]" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-white">1,234</p>
-                <p className="text-sm text-gray-400">Total Users</p>
-              </div>
-            </div>
-            <div className="mt-3 flex items-center gap-1 text-sm">
-              <TrendingUp className="w-4 h-4 text-green-500" />
-              <span className="text-green-500">+12.5%</span>
-              <span className="text-gray-500">from last week</span>
-            </div>
-          </Card>
-
-          <Card className="bg-[#181818] border-[#282828] p-6">
-            <div className="flex items-center gap-3">
-              <div className="bg-blue-500/20 p-3 rounded-lg">
-                <Activity className="w-6 h-6 text-blue-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-white">3,456</p>
-                <p className="text-sm text-gray-400">Sessions Today</p>
-              </div>
-            </div>
-            <div className="mt-3 flex items-center gap-1 text-sm">
-              <TrendingUp className="w-4 h-4 text-green-500" />
-              <span className="text-green-500">+8.3%</span>
-              <span className="text-gray-500">from yesterday</span>
-            </div>
-          </Card>
-
-          <Card className="bg-[#181818] border-[#282828] p-6">
-            <div className="flex items-center gap-3">
-              <div className="bg-purple-500/20 p-3 rounded-lg">
-                <Music className="w-6 h-6 text-purple-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-white">12.5k</p>
-                <p className="text-sm text-gray-400">Tracks Played</p>
-              </div>
-            </div>
-            <div className="mt-3 flex items-center gap-1 text-sm">
-              <TrendingUp className="w-4 h-4 text-green-500" />
-              <span className="text-green-500">+15.7%</span>
-              <span className="text-gray-500">from last week</span>
-            </div>
-          </Card>
-
-          <Card className="bg-[#181818] border-[#282828] p-6">
-            <div className="flex items-center gap-3">
-              <div className="bg-yellow-500/20 p-3 rounded-lg">
-                <AlertTriangle className="w-6 h-6 text-yellow-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-white">23</p>
-                <p className="text-sm text-gray-400">Active Alerts</p>
-              </div>
-            </div>
-            <div className="mt-3 flex items-center gap-1 text-sm">
-              <span className="text-gray-500">4 critical</span>
-            </div>
-          </Card>
+        {/* Key Metrics - REAL DATA */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            { label: "Total Scans", value: totalScans, icon: Activity, color: "text-[#1DB954]", bg: "bg-[#1DB954]/10" },
+            { label: "Active Days", value: uniqueDays, icon: TrendingUp, color: "text-blue-400", bg: "bg-blue-400/10" },
+            { label: "Dominant Mood", value: topEmotion, icon: Users, color: "text-purple-400", bg: "bg-purple-400/10" },
+            { label: "Avg Scans/Day", value: avgPerDay, icon: Music, color: "text-yellow-400", bg: "bg-yellow-400/10" },
+          ].map((m, i) => {
+            const Icon = m.icon;
+            return (
+              <Card key={i} className="bg-[#0f0f0f] border-gray-800 p-6 rounded-[2rem] hover:border-gray-700 transition-colors">
+                <div className={`${m.bg} w-12 h-12 rounded-2xl flex items-center justify-center mb-4`}>
+                  <Icon className={`w-6 h-6 ${m.color}`} />
+                </div>
+                <p className="text-3xl font-black text-white">{m.value}</p>
+                <p className="text-gray-500 text-xs uppercase tracking-widest font-bold mt-1">{m.label}</p>
+              </Card>
+            );
+          })}
         </div>
 
-        {/* Charts Row */}
+        {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Usage Trends */}
-          <Card className="bg-[#181818] border-[#282828] p-6">
-            <h3 className="text-white mb-4">Usage Trends</h3>
-            <ResponsiveContainer width="100%" height={250}>
-              <LineChart data={usageData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#282828" />
-                <XAxis dataKey="date" stroke="#666" />
-                <YAxis stroke="#666" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#282828",
-                    border: "1px solid #404040",
-                    borderRadius: "8px",
-                    color: "#fff"
-                  }}
-                />
-                <Line type="monotone" dataKey="sessions" stroke="#1DB954" strokeWidth={2} />
-                <Line type="monotone" dataKey="users" stroke="#3b82f6" strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
+          <Card className="bg-[#0f0f0f] border-gray-800 p-8 rounded-[2rem]">
+            <h3 className="text-white font-black italic uppercase tracking-tighter text-lg mb-6">Emotion Distribution</h3>
+            {emotionDist.length > 0 ? (
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={emotionDist}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
+                  <XAxis dataKey="emotion" stroke="#555" tick={{ fontSize: 11 }} />
+                  <YAxis stroke="#555" tick={{ fontSize: 11 }} />
+                  <Tooltip contentStyle={{ backgroundColor: "#0f0f0f", border: "1px solid #222", borderRadius: "12px", color: "#fff" }} />
+                  <Bar dataKey="count" fill="#1DB954" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[220px] flex items-center justify-center text-gray-700 font-black italic uppercase">No scan data yet</div>
+            )}
           </Card>
 
-          {/* Emotion Distribution */}
-          <Card className="bg-[#181818] border-[#282828] p-6">
-            <h3 className="text-white mb-4">Emotion Distribution</h3>
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={emotionData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#282828" />
-                <XAxis dataKey="emotion" stroke="#666" />
-                <YAxis stroke="#666" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#282828",
-                    border: "1px solid #404040",
-                    borderRadius: "8px",
-                    color: "#fff"
-                  }}
-                />
-                <Bar dataKey="count" fill="#1DB954" />
-              </BarChart>
-            </ResponsiveContainer>
+          <Card className="bg-[#0f0f0f] border-gray-800 p-8 rounded-[2rem]">
+            <h3 className="text-white font-black italic uppercase tracking-tighter text-lg mb-6">Daily Scan Trend</h3>
+            {dailyTrend.length > 0 ? (
+              <ResponsiveContainer width="100%" height={220}>
+                <LineChart data={dailyTrend}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
+                  <XAxis dataKey="date" stroke="#555" tick={{ fontSize: 11 }} />
+                  <YAxis stroke="#555" tick={{ fontSize: 11 }} />
+                  <Tooltip contentStyle={{ backgroundColor: "#0f0f0f", border: "1px solid #222", borderRadius: "12px", color: "#fff" }} />
+                  <Line type="monotone" dataKey="scans" stroke="#1DB954" strokeWidth={2} dot={{ fill: "#1DB954", r: 4 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[220px] flex items-center justify-center text-gray-700 font-black italic uppercase">No trend data yet</div>
+            )}
           </Card>
         </div>
 
-        {/* System Health */}
-        <Card className="bg-[#181818] border-[#282828] p-6">
-          <h3 className="text-white mb-4">System Health</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {systemMetrics.map((metric, index) => {
-              const Icon = metric.icon;
-              return (
-                <div key={index} className="p-4 bg-[#282828] rounded-lg flex items-center gap-3">
-                  <Icon className="w-5 h-5 text-gray-400" />
+        {/* Recent Scan Log */}
+        <Card className="bg-[#0f0f0f] border-gray-800 p-8 rounded-[2rem]">
+          <h3 className="text-white font-black italic uppercase tracking-tighter text-lg mb-6">Recent Scan Log</h3>
+          <div className="space-y-3 max-h-80 overflow-y-auto">
+            {scans.length > 0 ? [...scans].reverse().slice(0, 20).map((scan, i) => (
+              <div key={i} className="flex items-center justify-between p-4 bg-[#151515] rounded-2xl border border-white/5 hover:border-gray-700 transition-colors">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-[#1DB954]/10 flex items-center justify-center text-lg">
+                    {scan.emotion === "Happy" && "😊"}
+                    {scan.emotion === "Sad" && "😢"}
+                    {scan.emotion === "Angry" && "😠"}
+                    {scan.emotion === "Neutral" && "😐"}
+                    {scan.emotion === "Surprise" && "😲"}
+                    {scan.emotion === "Fear" && "😨"}
+                    {scan.emotion === "Disgust" && "🤢"}
+                  </div>
                   <div>
-                    <p className="text-white font-medium">{metric.value}</p>
-                    <p className="text-sm text-gray-400">{metric.name}</p>
+                    <p className="text-white font-black text-sm uppercase tracking-tight">{scan.emotion}</p>
+                    <p className="text-gray-600 text-xs font-bold">{scan.playlist}</p>
                   </div>
-                  {metric.status === "healthy" && (
-                    <div className="ml-auto w-2 h-2 bg-green-500 rounded-full" />
-                  )}
-                  {metric.status === "warning" && (
-                    <div className="ml-auto w-2 h-2 bg-yellow-500 rounded-full" />
-                  )}
                 </div>
-              );
-            })}
-          </div>
-        </Card>
-
-        {/* Recent Errors */}
-        <Card className="bg-[#181818] border-[#282828] p-6">
-          <h3 className="text-white mb-4">Recent Errors & Warnings</h3>
-          <div className="space-y-3">
-            {recentErrors.map((error) => (
-              <div key={error.id} className="p-4 bg-[#282828] rounded-lg flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Badge variant="outline" className={getSeverityColor(error.severity)}>
-                      {error.severity.toUpperCase()}
-                    </Badge>
-                    <span className="text-sm text-gray-400">{error.time}</span>
-                  </div>
-                  <p className="text-white font-medium">{error.type}</p>
-                  <p className="text-sm text-gray-400 mt-1">{error.message}</p>
-                </div>
+                <p className="text-gray-600 text-xs font-bold">{new Date(scan.timestamp).toLocaleString()}</p>
               </div>
-            ))}
+            )) : (
+              <p className="text-gray-700 font-black italic uppercase text-center py-8">No scans recorded yet. Start scanning!</p>
+            )}
           </div>
         </Card>
       </div>

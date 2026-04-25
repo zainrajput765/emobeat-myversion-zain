@@ -10,7 +10,7 @@ import { Navigation } from "./components/Navigation";
 function App() {
   const [appState, setAppState] = useState("welcome"); // welcome | auth | app
   const [currentPage, setCurrentPage] = useState("dashboard"); // dashboard | history | settings | admin
-  const [isAdmin] = useState(true); // In production, this would be based on user role
+  const [isAdmin] = useState(false); // Admin tab hidden from all users - access via Settings
 
   // Apply dark mode on mount
   useEffect(() => {
@@ -33,6 +33,13 @@ function App() {
   const handleNavigate = (page) => {
     setCurrentPage(page);
   };
+
+  // Secret admin navigation via custom event (triggered from Settings)
+  useEffect(() => {
+    const handler = () => setCurrentPage("admin");
+    window.addEventListener("navigate-admin", handler);
+    return () => window.removeEventListener("navigate-admin", handler);
+  }, []);
 
   // Welcome Page
   if (appState === "welcome") {

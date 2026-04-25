@@ -159,11 +159,20 @@ export function Settings({ onLogout }) {
             <Button
               variant="outline"
               className="w-full border-red-500/30 text-red-500 hover:bg-red-500/10"
+              onClick={() => { localStorage.removeItem("emobeat_scan_history"); alert("History cleared."); }}
             >
               Clear History
             </Button>
           </div>
         </Card>
+
+        {/* Hidden Admin Access - subtle, not obvious to regular users */}
+        <p
+          className="text-center text-gray-800 text-[10px] font-bold cursor-pointer hover:text-gray-600 transition-colors select-none"
+          onClick={() => window.dispatchEvent(new CustomEvent("navigate-admin"))}
+        >
+          System Administration
+        </p>
 
         {/* Account */}
         <Card className="bg-[#181818] border-[#282828] p-6">
