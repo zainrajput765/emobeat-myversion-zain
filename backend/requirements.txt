@@ -8,3 +8,4 @@ spotipy==2.23.0
 opencv-python-headless
 stripe
 python-dotenv
+numpy<2
