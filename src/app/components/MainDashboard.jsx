@@ -205,6 +205,7 @@ export function MainDashboard({ onNavigate }) {
                 <video
                   ref={videoRef}
                   className={`w-full h-full object-cover transition-all duration-1000 ${isFinalized ? 'opacity-30 blur-sm scale-110' : 'opacity-100'}`}
+                  style={{ transform: 'scaleX(-1)' }}
                   autoPlay muted playsInline
                 />
                 <canvas ref={canvasRef} className="hidden" />
