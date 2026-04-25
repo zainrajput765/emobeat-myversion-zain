@@ -46,8 +46,11 @@ class EmotionPredictor:
             return None
 
     def _get_transforms(self):
-        # Reverted to standard ImageNet transforms (224x224 RGB) that ResNet-18 expects
+        # CRITICAL FIX: FER2013 is a grayscale dataset. If we feed raw webcam color (RGB),
+        # the model freaks out because it has never seen actual colors (skin tones).
+        # We must convert to grayscale, then output as 3 identical channels to satisfy ResNet-18.
         return transforms.Compose([
+            transforms.Grayscale(num_output_channels=3),
             transforms.Resize((224, 224)),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
