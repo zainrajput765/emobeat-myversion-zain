@@ -63,15 +63,48 @@ class EmotionPredictor:
             # 1. Convert bytes to OpenCV image
             nparr = np.frombuffer(image_bytes, np.uint8)
             img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            img_h, img_w, _ = img.shape
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
             # 2. Detect Faces
-            faces = self.face_cascade.detectMultiScale(gray, 1.1, 4)
+            faces, rejectLevels, levelWeights = self.face_cascade.detectMultiScale3(gray, 1.1, 4, outputRejectLevels=True)
             
             if len(faces) > 0:
-                # Use the largest face if multiple detected
-                (x, y, w, h) = sorted(faces, key=lambda f: f[2]*f[3], reverse=True)[0]
+                # Use the face with the highest weight (confidence)
+                weights = np.array(levelWeights).flatten()
+                max_weight_idx = np.argmax(weights)
+                (x, y, w, h) = faces[max_weight_idx]
+                face_weight = weights[max_weight_idx]
+                
+                # Normalize detector confidence (Haar weights typically max out around 5-10)
+                detector_conf = min(max(face_weight / 5.0, 0.1), 1.0)
+                
                 face_img = img[y:y+h, x:x+w]
+                
+                # Calculate Face Clarity & Proximity Metrics
+                # Size metric (relative area to total frame)
+                face_area = w * h
+                frame_area = img_w * img_h
+                area_ratio = face_area / frame_area
+                size_score = min(area_ratio / 0.15, 1.0) # Assume 15% frame area is optimal
+                
+                # Blurriness metric (Laplacian variance)
+                gray_face = cv2.cvtColor(face_img, cv2.COLOR_BGR2GRAY)
+                blur_variance = cv2.Laplacian(gray_face, cv2.CV_64F).var()
+                blur_score = min(blur_variance / 100.0, 1.0) # > 100 is usually sharp
+                
+                # Center metric
+                face_center_x = x + w / 2
+                face_center_y = y + h / 2
+                frame_center_x = img_w / 2
+                frame_center_y = img_h / 2
+                dist = np.sqrt((face_center_x - frame_center_x)**2 + (face_center_y - frame_center_y)**2)
+                max_dist = np.sqrt(frame_center_x**2 + frame_center_y**2)
+                center_score = max(0, 1.0 - (dist / max_dist))
+                
+                # Overall visibility score
+                visibility_score = (size_score * 0.4) + (blur_score * 0.4) + (center_score * 0.2)
+                
                 # Convert back to PIL for transforms
                 pil_image = Image.fromarray(cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB))
             else:
@@ -86,11 +119,23 @@ class EmotionPredictor:
                     probabilities = torch.nn.functional.softmax(outputs, dim=1)
                     confidence, predicted = torch.max(probabilities, 1)
                     class_idx = predicted.item()
-                    conf_pct = round(confidence.item() * 100, 1)
+                    ai_conf = confidence.item()
+
+                # 4. Final Neural Match Calculation
+                final_score = ai_conf * detector_conf * visibility_score
+                
+                # Aggressively scale down if poor visibility or confidence
+                if visibility_score < 0.6 or detector_conf < 0.5:
+                    final_score = final_score * 0.5
+                    
+                conf_pct = round(final_score * 100, 1)
+                
+                # Ensure it stays within bounds
+                conf_pct = max(0.0, min(100.0, conf_pct))
 
                 if class_idx < len(EMOTION_LABELS):
                     label = EMOTION_LABELS[class_idx]
-                    print(f"DEBUG: PyTorch Model Predicted: {label} ({conf_pct:.1f}%)")
+                    print(f"DEBUG: Predicted: {label} (AI: {ai_conf*100:.1f}%, Final Match: {conf_pct:.1f}%, Vis: {visibility_score*100:.1f}%)")
                     return {"emotion": label, "confidence": conf_pct}
                 else:
                     return {"emotion": "Neutral", "confidence": 50.0}
