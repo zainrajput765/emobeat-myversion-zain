@@ -35,7 +35,7 @@ class CheckoutSessionRequest(BaseModel):
 
 @app.get("/")
 def read_root():
-    return {"message": "Welcome to EmoBeat API"}
+    return {"message": "Welcome to the EmoBeat API"}
 
 @app.post("/recommend-music", response_model=RecommendationResponse)
 async def recommend_music(file: UploadFile = File(...)):
