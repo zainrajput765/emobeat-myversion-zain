@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Slider } from "./ui/slider";
 import { Camera, Music, Bell, LogOut, Shield } from "lucide-react";
 import { useState } from "react";
+import { HelpTooltip } from "./TutorialOverlay";
 
 export function Settings({ onLogout }) {
   const [cameraQuality, setCameraQuality] = useState("high");
@@ -139,7 +140,10 @@ export function Settings({ onLogout }) {
         <Card className="bg-[#181818] border-[#282828] p-6">
           <div className="flex items-center gap-3 mb-6">
             <Shield className="w-5 h-5 text-[#1DB954]" />
-            <h3 className="text-white">Privacy & Data</h3>
+            <h3 className="text-white flex items-center gap-1">
+              Privacy &amp; Data
+              <HelpTooltip topic="privacy" />
+            </h3>
           </div>
 
           <div className="space-y-4">

@@ -26,6 +26,7 @@ app.add_middleware(
 
 class RecommendationResponse(BaseModel):
     detected_emotion: str
+    confidence: float
     playlist_name: str
     playlist_url: str
     playlist_cover_image: str
@@ -43,12 +44,15 @@ async def recommend_music(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="File provided is not an image.")
     try:
         image_bytes = await file.read()
-        detected_emotion = predictor.predict_emotion(image_bytes)
+        result = predictor.predict_emotion(image_bytes)
+        detected_emotion = result["emotion"]
+        confidence = result["confidence"]
         playlist_data = spotify_service.get_playlist_for_emotion(detected_emotion)
         if not playlist_data:
             raise HTTPException(status_code=404, detail="No playlist found.")
         return RecommendationResponse(
             detected_emotion=detected_emotion,
+            confidence=confidence,
             playlist_name=playlist_data["name"],
             playlist_url=playlist_data["url"],
             playlist_cover_image=playlist_data["cover_image"]

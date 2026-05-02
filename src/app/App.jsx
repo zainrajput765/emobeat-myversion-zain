@@ -6,37 +6,66 @@ import { UserHistory } from "./components/UserHistory";
 import { Settings } from "./components/Settings";
 import { AdminDashboard } from "./components/AdminDashboard";
 import { Navigation } from "./components/Navigation";
+import { TutorialOverlay } from "./components/TutorialOverlay";
 
 function App() {
   const [appState, setAppState] = useState("welcome"); // welcome | auth | app
-  const [currentPage, setCurrentPage] = useState("dashboard"); // dashboard | history | settings | admin
-  const [isAdmin] = useState(false); // Admin tab hidden from all users - access via Settings
+  const [currentPage, setCurrentPage] = useState("dashboard");
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [userMode, setUserMode] = useState("authenticated"); // "authenticated" | "anonymous"
+  const [showTutorial, setShowTutorial] = useState(false);
 
   // Apply dark mode on mount
   useEffect(() => {
     document.documentElement.classList.add("dark");
   }, []);
 
-  const handleStart = () => {
-    setAppState("auth");
+  // Show tutorial overlay for first-time visitors (once per browser session)
+  useEffect(() => {
+    if (appState === "app") {
+      const hasSeenTutorial = localStorage.getItem("emobeat_tutorial_seen");
+      if (!hasSeenTutorial) {
+        // Small delay so the dashboard renders first
+        const t = setTimeout(() => setShowTutorial(true), 800);
+        return () => clearTimeout(t);
+      }
+    }
+  }, [appState]);
+
+  const handleTutorialClose = () => {
+    localStorage.setItem("emobeat_tutorial_seen", "true");
+    setShowTutorial(false);
   };
 
+  const handleStart = () => setAppState("auth");
+
   const handleAuthenticate = () => {
+    setUserMode("authenticated");
+    setAppState("app");
+  };
+
+  const handleSkipAuth = () => {
+    setUserMode("anonymous");
     setAppState("app");
   };
 
   const handleLogout = () => {
     setAppState("welcome");
     setCurrentPage("dashboard");
+    setIsAdmin(false);
+    setUserMode("authenticated");
+    // Let tutorial show again on next login
+    localStorage.removeItem("emobeat_tutorial_seen");
   };
 
-  const handleNavigate = (page) => {
-    setCurrentPage(page);
-  };
+  const handleNavigate = (page) => setCurrentPage(page);
 
   // Secret admin navigation via custom event (triggered from Settings)
   useEffect(() => {
-    const handler = () => setCurrentPage("admin");
+    const handler = () => {
+      setIsAdmin(true);
+      setCurrentPage("admin");
+    };
     window.addEventListener("navigate-admin", handler);
     return () => window.removeEventListener("navigate-admin", handler);
   }, []);
@@ -48,7 +77,12 @@ function App() {
 
   // Spotify Authentication
   if (appState === "auth") {
-    return <SpotifyAuth onAuthenticate={handleAuthenticate} />;
+    return (
+      <SpotifyAuth
+        onAuthenticate={handleAuthenticate}
+        onSkip={handleSkipAuth}
+      />
+    );
   }
 
   // Main Application
@@ -58,19 +92,23 @@ function App() {
         currentPage={currentPage}
         onNavigate={handleNavigate}
         isAdmin={isAdmin}
+        userMode={userMode}
       />
 
       {currentPage === "dashboard" && (
-        <MainDashboard onNavigate={handleNavigate} />
+        <MainDashboard onNavigate={handleNavigate} userMode={userMode} />
       )}
 
       {currentPage === "history" && <UserHistory />}
 
       {currentPage === "settings" && (
-        <Settings onLogout={handleLogout} />
+        <Settings onLogout={handleLogout} userMode={userMode} />
       )}
 
       {currentPage === "admin" && isAdmin && <AdminDashboard />}
+
+      {/* First-time tutorial overlay */}
+      {showTutorial && <TutorialOverlay onClose={handleTutorialClose} />}
     </div>
   );
 }

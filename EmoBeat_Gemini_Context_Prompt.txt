@@ -1,0 +1,46 @@
+**Copy and paste everything below this line into Gemini or ChatGPT to generate your VIVA prep:**
+
+---
+
+**System Prompt:** Act as a strict and highly technical University External Examiner for a Final Year Design Project (FYDP) in Computer Science / Software Engineering. I am going to provide you with the complete architectural and conceptual context of my FYDP. Based on this context, I want you to generate a comprehensive VIVA preparation guide. Ask me 15 extremely challenging questions (covering AI, Web Development, Architecture, and Problem Solving) that a professor would ask to ensure I didn't just copy the code. Provide the "Perfect Answer" for each question so I can study it.
+
+Here is the complete context of my project:
+
+### 1. Project Overview
+*   **Project Name:** EmoBeat
+*   **Core Concept:** An Emotion-Based Music Recommendation System Using Facial Expression Recognition.
+*   **Problem Solved:** Manual music selection is tedious and doesn't adapt to real-time mood changes. EmoBeat automates this by reading facial biometric data and instantly curating a matching Spotify playlist.
+
+### 2. High-Level Architecture (Microservices)
+*   **Frontend:** Built with React, Vite, and TailwindCSS. Hosted on Vercel.
+*   **Backend:** Built with Python and FastAPI. Hosted on a dedicated Linux container on Hugging Face Spaces.
+*   **Communication:** REST APIs with CORS enabled. The frontend captures webcam frames as JPEG blobs and sends them via `FormData` to the FastAPI backend.
+
+### 3. The Artificial Intelligence & Computer Vision Stack
+*   **Neural Network:** ResNet-18 (Residual Network), chosen for its balance of deep feature extraction (via skip connections) and lightweight size (~44MB), making it fast enough for web inference (<1s).
+*   **Dataset:** Trained on the FER2013 dataset (48x48 pixel grayscale images).
+*   **Classes:** 7 emotions (Angry, Disgust, Fear, Happy, Neutral, Sad, Surprise).
+*   **Computer Vision (OpenCV):** Used for pre-processing. Before the heavy PyTorch model runs, `haarcascade_frontalface_default.xml` scans the image. 
+*   **Crucial AI Pipeline:** 
+    1. Image received as bytes.
+    2. Decoded via `cv2.imdecode`.
+    3. Converted to grayscale for Haar Cascade face detection.
+    4. Face is cropped.
+    5. Converted back to RGB for PIL.
+    6. Passed through `torchvision.transforms` (Resize to 224x224, converted to Tensor, and Normalized using ImageNet standards `mean=[0.485, 0.456, 0.406]`).
+    7. Passed to PyTorch model (`model.eval()`) under `torch.no_grad()`.
+    8. Softmax applied to logits to get the highest probability class.
+
+### 4. Key Software Engineering Features
+*   **Smart Scan Lock (Biometric HUD):** The frontend polls a `/detect-face` endpoint every 600ms. It draws a futuristic green/red tracking box on the canvas. The system *refuses* to capture an image for the heavy AI unless exactly *one* face is locked. This saves massive server compute and prevents "black screen" errors.
+*   **Music Integration:** Uses the `spotipy` library to connect to the Spotify Web API via the Client Credentials Flow (server-to-server). It searches for curated playlists based on the detected emotion and returns an embeddable Spotify URI to the React frontend.
+*   **State & Persistence:** Uses browser `localStorage` to save User History and calculate usage statistics (pie charts of moods) without the overhead of a SQL database.
+*   **Security & Monetization:** Features a password-gated Admin Dashboard and a simulated Stripe checkout integration for premium tier testing.
+*   **Containerization:** Fully Dockerized (`Dockerfile` and `docker-compose.yml`) to satisfy the Software Design Specification (SDS) requirement for portable, reproducible environments.
+
+### 5. Major Technical Challenges Overcome (Great for VIVA discussion)
+*   **Domain Shift / Model Sensitivity:** The ResNet model was highly sensitive to input distributions. Because it was trained on standardized data, feeding it raw, un-normalized webcam crops caused it to constantly predict "Surprise" (due to a slight mode collapse/bias towards index 6). We solved this by strictly enforcing ImageNet normalization matrices (`std=[0.229, 0.224, 0.225]`) to align the real-time webcam pixel distribution with the model's training expectations.
+*   **Asynchronous State Management:** Handling the React component lifecycle alongside the `setInterval` of the webcam capture. We had to implement strict cleanup functions in `useEffect` to prevent memory leaks and ensure the camera turns off when navigating away from the dashboard.
+*   **Deployment Architecture:** Splitting the app. Putting a 44MB `.pth` PyTorch file on Vercel is impossible due to serverless function size limits (50MB max including dependencies). Therefore, we offloaded the heavy lifting to Hugging Face Spaces (specialized for ML) while keeping Vercel for the blazing-fast React UI.
+
+Please generate the VIVA questions and answers now.

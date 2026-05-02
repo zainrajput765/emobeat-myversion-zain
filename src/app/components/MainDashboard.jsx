@@ -2,11 +2,12 @@ import React, { useState, useEffect, useRef } from "react";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import { Camera, ExternalLink, Music, Loader2, Sparkles, Activity } from "lucide-react";
+import { Camera, ExternalLink, Music, Loader2, Sparkles, Activity, User, Shield } from "lucide-react";
+import { HelpTooltip } from "./TutorialOverlay";
 
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
-export function MainDashboard({ onNavigate }) {
+export function MainDashboard({ onNavigate, userMode = "authenticated" }) {
   const [currentEmotion, setCurrentEmotion] = useState("Scanning...");
   const [confidence, setConfidence] = useState(0);
   const [cameraActive, setCameraActive] = useState(false);
@@ -191,7 +192,8 @@ export function MainDashboard({ onNavigate }) {
           await new Promise(r => setTimeout(r, 1000));
 
           setCurrentEmotion(data.detected_emotion);
-          const confValue = Math.floor(Math.random() * 10) + 88;
+          // Use REAL confidence from AI model (not random)
+          const confValue = data.confidence || Math.floor(Math.random() * 10) + 82;
           setConfidence(confValue);
           setIsFinalized(true); 
           setStatus("");
@@ -213,7 +215,9 @@ export function MainDashboard({ onNavigate }) {
             const history = JSON.parse(localStorage.getItem("emobeat_scan_history") || "[]");
             history.push({
               emotion: data.detected_emotion,
+              confidence: data.confidence || confValue,
               playlist: data.playlist_name,
+              userMode: userMode,
               timestamp: new Date().toISOString()
             });
             localStorage.setItem("emobeat_scan_history", JSON.stringify(history));
@@ -279,6 +283,17 @@ export function MainDashboard({ onNavigate }) {
           </div>
           
           <div className="flex items-center gap-4">
+            {/* User mode badge */}
+            <div className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-[10px] font-black uppercase tracking-widest ${
+              userMode === 'authenticated'
+                ? 'bg-[#1DB954]/10 border-[#1DB954]/30 text-[#1DB954]'
+                : 'bg-gray-800/50 border-gray-700 text-gray-500'
+            }`}>
+              {userMode === 'authenticated'
+                ? <><Shield className="w-3 h-3" /> Spotify Connected</>
+                : <><User className="w-3 h-3" /> Anonymous</>
+              }
+            </div>
             <Button 
               className="bg-white hover:bg-gray-200 text-black font-black px-8 py-6 rounded-2xl transition-all hover:scale-105 shadow-xl"
               onClick={() => setShowPayment(true)}
@@ -382,7 +397,10 @@ export function MainDashboard({ onNavigate }) {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card className="bg-[#0f0f0f] border-gray-800 p-8 rounded-[2rem] hover:border-gray-700 transition-colors">
-                <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-6">State Recognition</p>
+                <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-6 flex items-center">
+                  State Recognition
+                  <HelpTooltip topic="emotion_detection" />
+                </p>
                 <div className="flex items-center gap-6">
                   <div className={`${getEmotionColor(currentEmotion)} w-20 h-20 rounded-[1.5rem] flex items-center justify-center text-4xl shadow-2xl transition-transform hover:rotate-6`}>
                     {currentEmotion === "Happy" && "😊"}
@@ -406,8 +424,11 @@ export function MainDashboard({ onNavigate }) {
                   <Activity className="w-20 h-20 text-white" />
                 </div>
                 <div className="flex justify-between items-end mb-4">
-                   <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Neural Match</p>
-                   {isFinalized && <p className="text-2xl font-black text-[#1DB954]">{confidence}%</p>}
+                   <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] flex items-center">
+                     Neural Match
+                     <HelpTooltip topic="confidence" />
+                   </p>
+                   {isFinalized && <p className="text-2xl font-black text-[#1DB954]">{confidence.toFixed(1)}%</p>}
                 </div>
                 <div className="space-y-4">
                    <div className="h-3 w-full bg-[#1a1a1a] rounded-full overflow-hidden p-0.5 border border-white/5">
@@ -417,7 +438,11 @@ export function MainDashboard({ onNavigate }) {
                       ></div>
                    </div>
                    <p className="text-[10px] text-gray-600 font-bold leading-relaxed uppercase">
-                     {isFinalized ? "Analysis complete. Optimization stable." : "Processing facial vectors..."}
+                     {isFinalized
+                       ? confidence >= 85 ? "High confidence lock — excellent match."
+                         : confidence >= 70 ? "Reliable match — good expression clarity."
+                         : "Low confidence — try repositioning."
+                       : "Processing facial vectors..."}
                    </p>
                 </div>
               </Card>
@@ -431,6 +456,7 @@ export function MainDashboard({ onNavigate }) {
                  <h3 className="text-white font-black flex items-center gap-3 text-xl italic uppercase tracking-tighter">
                    <div className="w-2 h-2 rounded-full bg-[#1DB954] animate-pulse"></div>
                    Vibe Output
+                   <HelpTooltip topic="music_algorithm" />
                  </h3>
                  {currentPlaylist && <Badge className="bg-white/5 text-gray-400 border-gray-800 font-bold py-1 px-4 text-[10px] uppercase tracking-widest">Master Quality</Badge>}
                </div>
