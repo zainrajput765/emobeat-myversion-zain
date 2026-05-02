@@ -8,7 +8,7 @@ import { Camera, Music, Bell, LogOut, Shield } from "lucide-react";
 import { useState } from "react";
 import { HelpTooltip } from "./TutorialOverlay";
 
-export function Settings({ onLogout }) {
+export function Settings({ onLogout, userMode = "authenticated", userData = null }) {
   const [cameraQuality, setCameraQuality] = useState("high");
   const [notifications, setNotifications] = useState(true);
   const [autoPlay, setAutoPlay] = useState(true);
@@ -188,11 +188,13 @@ export function Settings({ onLogout }) {
           <div className="space-y-4">
             <div className="flex items-center justify-between p-4 bg-[#282828] rounded-lg">
               <div>
-                <p className="text-white font-medium">Connected Account</p>
-                <p className="text-sm text-gray-400">user@spotify.com</p>
+                <p className="text-white font-medium">{userData?.displayName || "EmoBeat User"}</p>
+                <p className="text-sm text-gray-400">{userData?.email || (userMode === "anonymous" ? "Anonymous session" : "Spotify account")}</p>
               </div>
-              <div className="px-3 py-1 bg-[#1DB954]/20 text-[#1DB954] rounded-full text-xs">
-                Connected
+              <div className={`px-3 py-1 rounded-full text-xs ${
+                userMode === "authenticated" ? "bg-[#1DB954]/20 text-[#1DB954]" : "bg-gray-700/50 text-gray-500"
+              }`}>
+                {userMode === "authenticated" ? "Connected" : "Anonymous"}
               </div>
             </div>
 
@@ -202,7 +204,7 @@ export function Settings({ onLogout }) {
               className="w-full"
             >
               <LogOut className="w-4 h-4 mr-2" />
-              Disconnect Spotify
+              {userMode === "authenticated" ? "Disconnect Spotify" : "Sign Out"}
             </Button>
           </div>
         </Card>

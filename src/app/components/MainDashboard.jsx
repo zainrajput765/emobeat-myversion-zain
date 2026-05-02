@@ -7,7 +7,7 @@ import { HelpTooltip } from "./TutorialOverlay";
 
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
-export function MainDashboard({ onNavigate, userMode = "authenticated" }) {
+export function MainDashboard({ onNavigate, userMode = "authenticated", userData = null }) {
   const [currentEmotion, setCurrentEmotion] = useState("Scanning...");
   const [confidence, setConfidence] = useState(0);
   const [cameraActive, setCameraActive] = useState(false);
@@ -283,17 +283,6 @@ export function MainDashboard({ onNavigate, userMode = "authenticated" }) {
           </div>
           
           <div className="flex items-center gap-4">
-            {/* User mode badge */}
-            <div className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-[10px] font-black uppercase tracking-widest ${
-              userMode === 'authenticated'
-                ? 'bg-[#1DB954]/10 border-[#1DB954]/30 text-[#1DB954]'
-                : 'bg-gray-800/50 border-gray-700 text-gray-500'
-            }`}>
-              {userMode === 'authenticated'
-                ? <><Shield className="w-3 h-3" /> Spotify Connected</>
-                : <><User className="w-3 h-3" /> Anonymous</>
-              }
-            </div>
             <Button 
               className="bg-white hover:bg-gray-200 text-black font-black px-8 py-6 rounded-2xl transition-all hover:scale-105 shadow-xl"
               onClick={() => setShowPayment(true)}
