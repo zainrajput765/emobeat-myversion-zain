@@ -1,6 +1,11 @@
 import os
+import requests
+import urllib.parse
+import base64
+import json
 from fastapi import FastAPI, File, UploadFile, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
 import stripe
@@ -37,6 +42,87 @@ class CheckoutSessionRequest(BaseModel):
 @app.get("/")
 def read_root():
     return {"message": "Welcome to the EmoBeat API"}
+
+@app.get("/auth/login")
+def login_spotify():
+    client_id = os.getenv("SPOTIFY_CLIENT_ID")
+    redirect_uri = os.getenv("SPOTIFY_REDIRECT_URI", "http://localhost:8000/auth/callback")
+    if not client_id:
+        raise HTTPException(status_code=500, detail="SPOTIFY_CLIENT_ID not configured")
+    
+    scope = "user-read-private user-read-email"
+    query_params = {
+        "response_type": "code",
+        "client_id": client_id,
+        "scope": scope,
+        "redirect_uri": redirect_uri,
+        "show_dialog": "true"
+    }
+    url = f"https://accounts.spotify.com/authorize?{urllib.parse.urlencode(query_params)}"
+    return RedirectResponse(url)
+
+@app.get("/auth/callback")
+def auth_callback(code: str):
+    client_id = os.getenv("SPOTIFY_CLIENT_ID")
+    client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
+    redirect_uri = os.getenv("SPOTIFY_REDIRECT_URI", "http://localhost:8000/auth/callback")
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
+
+    if not client_id or not client_secret:
+        raise HTTPException(status_code=500, detail="Spotify credentials not configured")
+
+    # Exchange code for token
+    token_url = "https://accounts.spotify.com/api/token"
+    auth_header = base64.b64encode(f"{client_id}:{client_secret}".encode()).decode()
+    headers = {
+        "Authorization": f"Basic {auth_header}",
+        "Content-Type": "application/x-www-form-urlencoded"
+    }
+    data = {
+        "grant_type": "authorization_code",
+        "code": code,
+        "redirect_uri": redirect_uri
+    }
+    
+    response = requests.post(token_url, headers=headers, data=data)
+    if response.status_code != 200:
+        raise HTTPException(status_code=400, detail=f"Failed to fetch token from Spotify: {response.text}")
+        
+    token_info = response.json()
+    access_token = token_info.get("access_token")
+    
+    # Get user profile
+    profile_response = requests.get(
+        "https://api.spotify.com/v1/me", 
+        headers={"Authorization": f"Bearer {access_token}"}
+    )
+    if profile_response.status_code != 200:
+        error_detail = profile_response.text
+        if "premium subscription required" in error_detail.lower() or profile_response.status_code in [403, 401]:
+            # Fallback for developers without a Spotify Premium subscription
+            profile_data = {
+                "display_name": "Spotify User (No Premium)",
+                "email": "user@emobeat.test",
+                "id": "spotify_mock_id"
+            }
+        else:
+            raise HTTPException(status_code=400, detail=f"Failed to fetch user profile: {error_detail}")
+    else:
+        profile_data = profile_response.json()
+    
+    # Create session data for frontend
+    session_data = {
+        "displayName": profile_data.get("display_name") or profile_data.get("id"),
+        "email": profile_data.get("email"),
+        "mode": "authenticated",
+        "spotifyId": profile_data.get("id")
+    }
+    
+    # Encode session to base64 so we can pass it in URL
+    session_json = json.dumps(session_data)
+    session_encoded = urllib.parse.quote(base64.b64encode(session_json.encode()).decode())
+    
+    return RedirectResponse(f"{frontend_url}/?session={session_encoded}")
 
 @app.post("/recommend-music", response_model=RecommendationResponse)
 async def recommend_music(file: UploadFile = File(...)):

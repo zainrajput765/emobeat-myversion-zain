@@ -1,11 +1,12 @@
 fastapi==0.110.1
 uvicorn==0.29.0
 python-multipart==0.0.9
-torch==2.2.2
-torchvision==0.17.2
-Pillow==10.3.0
+torch>=2.9.0
+torchvision
+Pillow>=10.3.0
 spotipy==2.23.0
 opencv-python-headless
 stripe
 python-dotenv
-numpy<2
+numpy
+requests

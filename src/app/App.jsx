@@ -21,6 +21,29 @@ function App() {
   // ── On mount: restore session from localStorage ──────────────────────────
   useEffect(() => {
     document.documentElement.classList.add("dark");
+    
+    // Check if we just returned from Spotify OAuth
+    const params = new URLSearchParams(window.location.search);
+    const sessionParam = params.get("session");
+    
+    if (sessionParam) {
+      try {
+        const decodedStr = atob(decodeURIComponent(sessionParam));
+        const session = JSON.parse(decodedStr);
+        localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+        
+        // Clean up URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+        
+        setUserData(session);
+        setUserMode(session.mode || "authenticated");
+        setAppState("app");
+        return;
+      } catch (err) {
+        console.error("Failed to parse session from URL", err);
+      }
+    }
+
     try {
       const raw = localStorage.getItem(SESSION_KEY);
       if (raw) {

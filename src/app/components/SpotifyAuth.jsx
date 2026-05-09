@@ -26,23 +26,8 @@ export function SpotifyAuth({ onAuthenticate, onSkip }) {
     "Modify your playlists",
   ];
 
-  const handleBeginConnect = () => setView("form");
-
-  const handleFormSubmit = async () => {
-    if (!displayName.trim()) { setFormError("Please enter your name."); return; }
-    if (!email.trim() || !email.includes("@")) { setFormError("Please enter a valid email."); return; }
-    setFormError("");
-    setView("oauth");
-    setCurrentOAuthStep(0);
-
-    for (let i = 0; i < OAUTH_STEPS.length; i++) {
-      await new Promise(r => setTimeout(r, 600));
-      setCurrentOAuthStep(i + 1);
-    }
-    await new Promise(r => setTimeout(r, 500));
-    setView("done");
-    await new Promise(r => setTimeout(r, 700));
-    onAuthenticate({ displayName: displayName.trim(), email: email.trim() });
+  const handleBeginConnect = () => {
+    window.location.href = "http://localhost:8000/auth/login";
   };
 
   return (
