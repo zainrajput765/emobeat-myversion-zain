@@ -27,7 +27,8 @@ export function SpotifyAuth({ onAuthenticate, onSkip }) {
   ];
 
   const handleBeginConnect = () => {
-    window.location.href = "http://localhost:8000/auth/login";
+    const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
+    window.location.href = `${apiUrl}/auth/login`;
   };
 
   return (
