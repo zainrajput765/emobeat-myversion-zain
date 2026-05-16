@@ -66,7 +66,7 @@ def auth_callback(code: str):
     client_id = os.getenv("SPOTIFY_CLIENT_ID")
     client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
     redirect_uri = os.getenv("SPOTIFY_REDIRECT_URI", "http://localhost:8000/auth/callback")
-    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
+    frontend_url = os.getenv("FRONTEND_URL", "https://emobeat-myversion-zain.vercel.app")
 
     if not client_id or not client_secret:
         raise HTTPException(status_code=500, detail="Spotify credentials not configured")
@@ -187,7 +187,7 @@ async def detect_face(file: UploadFile = File(...)):
 async def create_checkout_session(plan: dict):
     # Check if we have a real Stripe key or a placeholder
     stripe_key = os.getenv("STRIPE_SECRET_KEY", "")
-    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    frontend_url = os.getenv("FRONTEND_URL", "https://emobeat-myversion-zain.vercel.app")
     
     if not stripe_key or "your_secret_key" in stripe_key:
         print("⚠️ STRIPE_SECRET_KEY not set. Running in SIMULATION MODE.")
