@@ -192,7 +192,7 @@ async def create_checkout_session(plan: dict):
     if not stripe_key or "your_secret_key" in stripe_key:
         print("⚠️ STRIPE_SECRET_KEY not set. Running in SIMULATION MODE.")
         # Redirect back to local app with success status
-        return {"url": "http://localhost:5173/?payment=success"}
+        return {"url": f"{frontend_url}/?payment=success"}
 
     try:
         checkout_session = stripe.checkout.Session.create(
