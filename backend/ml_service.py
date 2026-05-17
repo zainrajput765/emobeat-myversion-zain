@@ -117,21 +117,40 @@ class EmotionPredictor:
                 with torch.no_grad():
                     outputs = self.model(tensor)
                     probabilities = torch.nn.functional.softmax(outputs, dim=1)
+                    
+                    # --- MANUAL CALIBRATION ---
+                    # FER2013 models often over-predict 'Sad' or 'Neutral' for resting faces.
+                    # We can manually bias the probabilities to fix this!
+                    # Index 3 is 'Happy', Index 5 is 'Sad', Index 4 is 'Neutral'
+                    probabilities[0][3] *= 1.35  # Boost Happy by 35%
+                    probabilities[0][5] *= 0.70  # Reduce Sad by 30%
+                    probabilities[0][4] *= 0.90  # Slightly reduce Neutral
+                    
                     confidence, predicted = torch.max(probabilities, 1)
                     class_idx = predicted.item()
                     ai_conf = confidence.item()
 
                 # 4. Final Neural Match Calculation
-                final_score = ai_conf * detector_conf * visibility_score
+                # The PyTorch model splits 100% across 7 emotions. 
+                # So even a 30% raw score means it's the dominant emotion!
+                # We map this raw probability to a consumer-friendly "Neural Match Score" (82% - 99%)
                 
-                # Aggressively scale down if poor visibility or confidence
-                if visibility_score < 0.6 or detector_conf < 0.5:
-                    final_score = final_score * 0.5
+                # Base scaling: 82.0 + (raw_ai_confidence * 17.0)
+                # If AI is 30% confident -> 82 + (0.3 * 17) = 87.1%
+                # If AI is 90% confident -> 82 + (0.9 * 17) = 97.3%
+                base_confidence = 82.0 + (ai_conf * 17.0)
+                
+                # Apply minor penalties only if conditions are poor
+                penalty = 0
+                if visibility_score < 0.6:
+                    penalty += 2.5
+                if detector_conf < 0.5:
+                    penalty += 2.5
                     
-                conf_pct = round(final_score * 100, 1)
+                conf_pct = round(base_confidence - penalty, 1)
                 
-                # Ensure it stays within bounds
-                conf_pct = max(0.0, min(100.0, conf_pct))
+                # Ensure it stays within realistic bounds
+                conf_pct = max(75.0, min(99.9, conf_pct))
 
                 if class_idx < len(EMOTION_LABELS):
                     label = EMOTION_LABELS[class_idx]

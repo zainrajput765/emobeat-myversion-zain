@@ -17,6 +17,6 @@ COPY . .
 # Copy the model file from root (will be handled by docker-compose context)
 # COPY ../emotion_resnet18.pth /app/emotion_resnet18.pth
 
-EXPOSE 8000
+EXPOSE 7860
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "7860"]

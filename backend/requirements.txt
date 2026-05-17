@@ -10,3 +10,4 @@ stripe
 python-dotenv
 numpy
 requests
+pymongo==4.6.3

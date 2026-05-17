@@ -28,8 +28,43 @@ export function MainDashboard({ onNavigate, userMode = "authenticated", userData
   const streamRef = useRef(null);
   const faceDetectRef = useRef(null);
 
+  const [scanLimitDetails, setScanLimitDetails] = useState({
+    count: 0,
+    limit: 7,
+    reached: false,
+    isPro: false
+  });
+
+  const fetchScanLimit = async () => {
+    if (!userData?.spotifyId) return;
+    try {
+      const res = await fetch(`${BASE_URL}/api/scans/count/${userData.spotifyId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setScanLimitDetails(data);
+      }
+    } catch (e) {
+      console.error("Error fetching scan limit:", e);
+    }
+  };
+
+  useEffect(() => {
+    if (userData?.spotifyId) {
+      fetchScanLimit();
+    }
+  }, [userData]);
+
+  useEffect(() => {
+    if (scanLimitDetails.reached && streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      setCameraActive(false);
+    }
+  }, [scanLimitDetails.reached]);
+
   useEffect(() => {
     const startCamera = async () => {
+      // Do not open camera if daily limit is reached
+      if (scanLimitDetails.reached) return;
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         if (videoRef.current) videoRef.current.srcObject = stream;
@@ -42,18 +77,35 @@ export function MainDashboard({ onNavigate, userMode = "authenticated", userData
     };
     startCamera();
 
-    // Check for payment success redirect
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('payment') === 'success') {
       setPaymentSuccess(true);
       // Clean up URL without refreshing
       window.history.replaceState({}, document.title, window.location.pathname);
+      
+      // Upgrade user in DB
+      if (userData?.spotifyId) {
+        fetch(`${BASE_URL}/api/users/upgrade`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ spotifyId: userData.spotifyId })
+        }).then(() => {
+          const sessionStr = localStorage.getItem("emobeat_user_session");
+          if (sessionStr) {
+            const session = JSON.parse(sessionStr);
+            session.isPro = true;
+            localStorage.setItem("emobeat_user_session", JSON.stringify(session));
+          }
+          // Fetch updated scans limit configuration (will bypass limit as isPro is now true)
+          fetchScanLimit();
+        }).catch(console.error);
+      }
     }
 
     return () => {
       if (streamRef.current) streamRef.current.getTracks().forEach(track => track.stop());
     };
-  }, []);
+  }, [scanLimitDetails.reached]);
 
   useEffect(() => {
     if (isFinalized && streamRef.current) {
@@ -177,19 +229,27 @@ export function MainDashboard({ onNavigate, userMode = "authenticated", userData
         formData.append("file", blob, "webcam_frame.jpg");
 
         try {
-          const response = await fetch(`${BASE_URL}/recommend-music`, {
+          const response = await fetch(`${BASE_URL}/recommend-music?spotifyId=${userData?.spotifyId || ""}`, {
             method: "POST",
             body: formData,
           });
 
-          if (!response.ok) { setLoading(false); return; }
+          if (!response.ok) {
+            setLoading(false);
+            if (response.status === 403) {
+              const errData = await response.json();
+              alert(errData.detail || "Daily scan limit reached!");
+              fetchScanLimit();
+            }
+            return;
+          }
 
           const data = await response.json();
           
           setStatus("Vibe Check: " + data.detected_emotion);
-          await new Promise(r => setTimeout(r, 1000));
+          await new Promise(r => setTimeout(r, userData?.isPro ? 200 : 1000));
           setStatus("Generating Sonic Profile...");
-          await new Promise(r => setTimeout(r, 1000));
+          await new Promise(r => setTimeout(r, userData?.isPro ? 200 : 1000));
 
           setCurrentEmotion(data.detected_emotion);
           // Use REAL confidence from AI model (not random)
@@ -208,20 +268,24 @@ export function MainDashboard({ onNavigate, userMode = "authenticated", userData
           };
 
           setCurrentPlaylist(newPlaylist);
-          setPlaylistHistory(prev => [newPlaylist, ...prev.filter(p => p.name !== newPlaylist.name)].slice(0, 5));
+          setPlaylistHistory(prev => [newPlaylist, ...prev.filter(p => p.name !== newPlaylist.name)].slice(0, userData?.isPro ? 50 : 5));
 
-          // Save scan to localStorage for admin analytics
-          try {
-            const history = JSON.parse(localStorage.getItem("emobeat_scan_history") || "[]");
-            history.push({
-              emotion: data.detected_emotion,
-              confidence: data.confidence || confValue,
-              playlist: data.playlist_name,
-              userMode: userMode,
-              timestamp: new Date().toISOString()
-            });
-            localStorage.setItem("emobeat_scan_history", JSON.stringify(history));
-          } catch(e) { /* silent fail */ }
+          // Log to MongoDB
+          if (userData?.spotifyId) {
+            fetch(`${BASE_URL}/api/scans/log`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                spotifyId: userData.spotifyId,
+                emotion: data.detected_emotion,
+                confidence: data.confidence || confValue,
+                playlist_name: data.playlist_name,
+                userMode: userMode
+              })
+            }).then(() => {
+              fetchScanLimit();
+            }).catch(() => {});
+          }
 
         } catch (error) {
           console.error(error);
@@ -272,33 +336,59 @@ export function MainDashboard({ onNavigate, userMode = "authenticated", userData
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-4 md:p-8 font-sans selection:bg-[#1DB954]/40">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#050505] text-gray-900 dark:text-white p-4 md:p-8 font-sans selection:bg-[#1DB954]/40 transition-colors duration-300">
       <div className="max-w-[1600px] mx-auto space-y-10">
         <header className="flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="text-center md:text-left">
-            <h1 className="text-5xl font-black tracking-tighter italic text-white flex items-center gap-3">
+            <h1 className="text-5xl font-black tracking-tighter italic text-gray-900 dark:text-white flex items-center gap-3">
               EMOBEAT <Sparkles className="w-8 h-8 text-[#1DB954]" />
             </h1>
-            <p className="text-gray-400 text-xs font-black uppercase tracking-[0.3em] mt-1">Intelligence Optimized Sound</p>
+            <p className="text-gray-500 dark:text-gray-400 text-xs font-black uppercase tracking-[0.3em] mt-1">Intelligence Optimized Sound</p>
           </div>
           
           <div className="flex items-center gap-4">
-            <Button 
-              className="bg-white hover:bg-gray-200 text-black font-black px-8 py-6 rounded-2xl transition-all hover:scale-105 shadow-xl"
-              onClick={() => setShowPayment(true)}
-            >
-              PREMIUM ACCESS
-            </Button>
+            {!userData?.isPro ? (
+              <div className="flex flex-col items-end">
+                <Button 
+                  className={`bg-gray-900 dark:bg-white text-white dark:text-black font-black px-8 py-6 rounded-2xl transition-all shadow-xl ${userData?.spotifyId?.startsWith("guest_") ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-800 dark:hover:bg-gray-200 hover:scale-105"}`}
+                  onClick={() => {
+                    if (!userData?.spotifyId?.startsWith("guest_")) {
+                      setShowPayment(true);
+                    }
+                  }}
+                  disabled={userData?.spotifyId?.startsWith("guest_")}
+                >
+                  PREMIUM ACCESS
+                </Button>
+                {userData?.spotifyId?.startsWith("guest_") && (
+                  <span className="text-[10px] text-red-400 mt-1 uppercase font-bold tracking-widest text-right">Requires Registered Spotify Account</span>
+                )}
+              </div>
+            ) : (
+              <Button 
+                className="bg-gradient-to-r from-[#1DB954] to-emerald-400 text-black font-black px-8 py-6 rounded-2xl transition-all hover:scale-105 shadow-[0_0_20px_#1DB954]"
+                onClick={() => onNavigate("analytics")}
+              >
+                ANALYTICS (PRO)
+              </Button>
+            )}
             {isFinalized && (
               <Button 
                 variant="outline" 
-                className="border-gray-800 bg-transparent hover:bg-gray-900 text-white font-bold px-6 py-6 rounded-2xl"
+                className="border-gray-300 dark:border-gray-800 bg-transparent hover:bg-gray-100 dark:hover:bg-gray-900 text-gray-900 dark:text-white font-bold px-6 py-6 rounded-2xl"
                 onClick={resetScanner}
               >
                 Scan Again
               </Button>
             )}
-            <div className="flex items-center gap-3 px-5 py-3 bg-[#111] rounded-2xl border border-gray-800 shadow-inner">
+            {!scanLimitDetails.isPro && (
+              <div className="flex items-center gap-3 px-5 py-3 bg-white dark:bg-[#111] rounded-2xl border border-gray-200 dark:border-gray-800 shadow-inner">
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#1DB954]">
+                  Scans: {scanLimitDetails.count}/7
+                </span>
+              </div>
+            )}
+            <div className="flex items-center gap-3 px-5 py-3 bg-white dark:bg-[#111] rounded-2xl border border-gray-200 dark:border-gray-800 shadow-inner">
               <div className={`w-2.5 h-2.5 rounded-full ${cameraActive ? 'bg-[#1DB954] shadow-[0_0_10px_#1DB954]' : 'bg-red-500'}`}></div>
               <span className="text-[10px] font-black uppercase tracking-widest">{cameraActive ? 'Live Vision' : 'Offline'}</span>
             </div>
@@ -308,7 +398,7 @@ export function MainDashboard({ onNavigate, userMode = "authenticated", userData
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
           {/* Visual Analysis Section */}
           <div className="lg:col-span-6 space-y-8">
-            <Card className="bg-[#0f0f0f] border-gray-800 overflow-hidden relative shadow-[0_30px_60px_-12px_rgba(0,0,0,0.5)] rounded-[2.5rem]">
+            <Card className="bg-white dark:bg-[#0f0f0f] border-gray-200 dark:border-gray-800 overflow-hidden relative shadow-xl dark:shadow-[0_30px_60px_-12px_rgba(0,0,0,0.5)] rounded-[2.5rem] transition-colors duration-300">
               <div className="aspect-[4/3] relative bg-black">
                 <video
                   ref={videoRef}
@@ -317,6 +407,24 @@ export function MainDashboard({ onNavigate, userMode = "authenticated", userData
                   autoPlay muted playsInline
                 />
                 <canvas ref={canvasRef} className="hidden" />
+
+                {scanLimitDetails.reached && (
+                  <div className="absolute inset-0 bg-[#0c0c0c] flex flex-col items-center justify-center p-8 text-center z-30 transition-all">
+                    <div className="bg-[#1DB954]/10 p-5 rounded-full mb-6 border border-[#1DB954]/20 animate-pulse">
+                      <Sparkles className="w-10 h-10 text-[#1DB954]" />
+                    </div>
+                    <h3 className="text-2xl font-black text-white italic tracking-tighter uppercase mb-2">Daily Limit Reached</h3>
+                    <p className="text-sm text-gray-400 max-w-sm mb-8 font-bold leading-relaxed">
+                      You have scanned 7/7 faces today. Upgrade to EmoBeat Premium to unlock unlimited scans, deep AI analytics, and ad-free high-fidelity sound.
+                    </p>
+                    <Button 
+                      className="bg-gradient-to-r from-[#1DB954] to-emerald-400 text-black font-black px-10 py-6 rounded-2xl transition-all hover:scale-105 shadow-[0_0_30px_#1DB954]"
+                      onClick={() => setShowPayment(true)}
+                    >
+                      UNLOCK PREMIUM ACCESS
+                    </Button>
+                  </div>
+                )}
 
                 {/* Live face tracking overlay canvas */}
                 {!isFinalized && cameraActive && (
@@ -361,7 +469,7 @@ export function MainDashboard({ onNavigate, userMode = "authenticated", userData
                         <Loader2 className="w-20 h-20 text-[#1DB954] animate-spin mx-auto" />
                         <Music className="w-8 h-8 text-white absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
                       </div>
-                      <p className="text-3xl font-black tracking-tight text-white italic uppercase italic">{status}</p>
+                      <p className="text-3xl font-black tracking-tight text-white italic uppercase">{status}</p>
                     </div>
                   </div>
                 )}
@@ -369,7 +477,7 @@ export function MainDashboard({ onNavigate, userMode = "authenticated", userData
 
               {/* Guidance Strip */}
               {!isFinalized && cameraActive && (
-                <div className="px-6 py-3 bg-black/80 border-t border-white/5 flex items-center justify-center gap-6 flex-wrap">
+                <div className="px-6 py-3 bg-gray-100/90 dark:bg-black/80 border-t border-gray-200 dark:border-white/5 flex items-center justify-center gap-6 flex-wrap backdrop-blur-md">
                   {[
                     { icon: "💡", text: "Good lighting" },
                     { icon: "👤", text: "One person only" },
@@ -385,7 +493,7 @@ export function MainDashboard({ onNavigate, userMode = "authenticated", userData
             </Card>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card className="bg-[#0f0f0f] border-gray-800 p-8 rounded-[2rem] hover:border-gray-700 transition-colors">
+              <Card className="bg-white dark:bg-[#0f0f0f] border-gray-200 dark:border-gray-800 p-8 rounded-[2rem] hover:border-gray-300 dark:hover:border-gray-700 transition-colors shadow-sm">
                 <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-6 flex items-center">
                   State Recognition
                   <HelpTooltip topic="emotion_detection" />
@@ -402,7 +510,7 @@ export function MainDashboard({ onNavigate, userMode = "authenticated", userData
                     {currentEmotion === "Scanning..." && "⏳"}
                   </div>
                   <div>
-                    <h3 className="text-3xl font-black text-white italic tracking-tighter">{currentEmotion}</h3>
+                    <h3 className="text-3xl font-black text-gray-900 dark:text-white italic tracking-tighter">{currentEmotion}</h3>
                     {isFinalized && <Badge className="bg-[#1DB954] text-black border-none font-black mt-2">EMOTION VERIFIED</Badge>}
                   </div>
                 </div>
@@ -440,28 +548,28 @@ export function MainDashboard({ onNavigate, userMode = "authenticated", userData
 
           {/* Player & Recommendations Section - Expanded Area */}
           <div className="lg:col-span-6 space-y-8">
-            <Card className="bg-gradient-to-br from-[#121212] to-[#080808] border-gray-800 p-10 shadow-2xl relative overflow-hidden rounded-[2.5rem] min-h-[600px] flex flex-col">
+            <Card className="bg-gradient-to-br from-gray-50 dark:from-[#121212] to-gray-100 dark:to-[#080808] border-gray-200 dark:border-gray-800 p-10 shadow-sm dark:shadow-2xl relative overflow-hidden rounded-[2.5rem] min-h-[600px] flex flex-col transition-colors duration-300">
                <div className="flex items-center justify-between mb-10">
-                 <h3 className="text-white font-black flex items-center gap-3 text-xl italic uppercase tracking-tighter">
+                 <h3 className="text-gray-900 dark:text-white font-black flex items-center gap-3 text-xl italic uppercase tracking-tighter">
                    <div className="w-2 h-2 rounded-full bg-[#1DB954] animate-pulse"></div>
                    Vibe Output
                    <HelpTooltip topic="music_algorithm" />
                  </h3>
-                 {currentPlaylist && <Badge className="bg-white/5 text-gray-400 border-gray-800 font-bold py-1 px-4 text-[10px] uppercase tracking-widest">Master Quality</Badge>}
+                 {currentPlaylist && <Badge className="bg-gray-200 dark:bg-white/5 text-gray-600 dark:text-gray-400 border-transparent dark:border-gray-800 font-bold py-1 px-4 text-[10px] uppercase tracking-widest">Master Quality</Badge>}
                </div>
 
                {currentPlaylist ? (
                  <div className="flex-1 flex flex-col gap-8">
-                   <div className="flex items-center gap-8 bg-white/5 p-6 rounded-[2rem] border border-white/5 hover:bg-white/[0.07] transition-all">
+                   <div className="flex items-center gap-8 bg-white dark:bg-white/5 p-6 rounded-[2rem] border border-gray-200 dark:border-white/5 shadow-sm hover:bg-gray-50 dark:hover:bg-white/[0.07] transition-all">
                      <img
                        src={currentPlaylist.image}
                        alt=""
-                       className="w-32 h-32 rounded-2xl object-cover shadow-[0_20px_40px_rgba(0,0,0,0.4)]"
+                       className="w-32 h-32 rounded-2xl object-cover shadow-[0_20px_40px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.4)]"
                        onError={(e) => { e.target.src = "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=300&h=300&fit=crop"; }}
                      />
                      <div className="flex-1">
                        <p className="text-[#1DB954] text-[10px] font-black uppercase tracking-[0.3em] mb-2">Sonic Match Found</p>
-                       <h4 className="text-white font-black text-4xl tracking-tighter italic mb-1 truncate leading-none uppercase">{currentPlaylist.name}</h4>
+                       <h4 className="text-gray-900 dark:text-white font-black text-4xl tracking-tighter italic mb-1 truncate leading-none uppercase">{currentPlaylist.name}</h4>
                        <p className="text-gray-500 font-bold text-sm">Curated for your emotional blueprint</p>
                      </div>
                    </div>
@@ -597,7 +705,10 @@ export function MainDashboard({ onNavigate, userMode = "authenticated", userData
             </p>
             <Button 
               className="w-full bg-[#1DB954] hover:bg-[#1ed760] text-black font-black py-8 rounded-2xl transition-all shadow-xl"
-              onClick={() => setPaymentSuccess(false)}
+              onClick={() => {
+                setPaymentSuccess(false);
+                window.location.reload();
+              }}
             >
               START LISTENING
             </Button>

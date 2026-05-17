@@ -5,8 +5,8 @@ EmoBeat is an advanced, full-stack AI application that uses real-time facial exp
 ![EmoBeat Header](https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=1200&h=400&fit=crop)
 
 ## 🌐 Live Demo
-*   **Frontend (Live App):** [https://emobeat-final.vercel.app](https://emobeat-final.vercel.app)
-*   **Backend (API Docs):** [https://shazy07-emobeat-backend.hf.space/docs](https://shazy07-emobeat-backend.hf.space/docs)
+*   **Frontend (Live App):** [https://emobeat-myversion-zain.vercel.app/](https://emobeat-myversion-zain.vercel.app/)
+*   **Backend (API Docs):** [https://zainrajput1122-emobeat-backend.hf.space/docs](https://zainrajput1122-emobeat-backend.hf.space/docs)
 
 ## 🚀 Key Features
 
@@ -48,8 +48,8 @@ The easiest way to run EmoBeat is using Docker Compose:
 
 1.  Clone the repository:
     ```bash
-    git clone https://github.com/shazy07/EmoBeat-Final.git
-    cd EmoBeat-Final
+    git clone https://github.com/zainrajput765/emobeat-myversion-zain.git
+    cd emobeat-myversion-zain
     ```
 2.  Start the containers:
     ```bash
@@ -85,7 +85,10 @@ This project was developed as a **Final Year Project (FYP)**. It demonstrates th
 ---
 
 ## 👨‍💻 Contributors
-*   **Shazil** - Lead Developer & Architect
+*   **Shazil** - Model Training
+*   **Ehsan** - Frontend Developer
+*   **Zain** - Backend & Spotify Integration
+*   **Faizan** - Testing & QA
 
 ---
 *Created with ❤️ by the EmoBeat Team*
