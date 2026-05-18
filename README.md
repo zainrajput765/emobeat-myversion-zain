@@ -5,7 +5,7 @@ EmoBeat is an advanced, full-stack AI application that uses real-time facial exp
 ![EmoBeat Header](https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=1200&h=400&fit=crop)
 
 ## 🌐 Live Demo
-*   **Frontend (Live App):** [https://emobeat-myversion-zain.vercel.app/](https://emobeat-myversion-zain.vercel.app/)
+*   **Frontend (Live App):** [https://emobeat-fixedzain.vercel.app/](https://emobeat-fixedzain.vercel.app/)
 *   **Backend (API Docs):** [https://zainrajput1122-emobeat-backend.hf.space/docs](https://zainrajput1122-emobeat-backend.hf.space/docs)
 
 ## 🚀 Key Features
