@@ -325,6 +325,14 @@ async def get_history(spotifyId: str):
         })
     return history
 
+@app.delete("/api/history/{spotifyId}")
+async def clear_history(spotifyId: str):
+    try:
+        result = scans_collection.delete_many({"spotifyId": spotifyId})
+        return {"status": "success", "message": f"Successfully cleared {result.deleted_count} scan logs from MongoDB."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to clear history: {str(e)}")
+
 @app.get("/api/analytics/{spotifyId}")
 async def get_analytics(spotifyId: str):
     user = users_collection.find_one({"spotifyId": spotifyId})

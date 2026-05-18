@@ -14,6 +14,113 @@ export function Settings({ onLogout, userMode = "authenticated", userData = null
   const [autoPlay, setAutoPlay] = useState(true);
   const [emotionSensitivity, setEmotionSensitivity] = useState([75]);
 
+  const [downloading, setDownloading] = useState(false);
+  const [clearing, setClearing] = useState(false);
+
+  const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
+  const handleDownloadData = async () => {
+    if (!userData?.spotifyId) {
+      alert("No active user session detected to download data.");
+      return;
+    }
+
+    setDownloading(true);
+    try {
+      // 1. Fetch scan history from MongoDB
+      const res = await fetch(`${BASE_URL}/api/history/${userData.spotifyId}`);
+      let dbHistory = [];
+      if (res.ok) {
+        dbHistory = await res.json();
+      }
+
+      // 2. Fetch local storage history
+      let localHistory = [];
+      try {
+        localHistory = JSON.parse(localStorage.getItem("emobeat_scan_history") || "[]");
+      } catch (e) {
+        console.error("Failed to parse local history", e);
+      }
+
+      // 3. Assemble all data
+      const dataPayload = {
+        app: "EmoBeat",
+        downloadedAt: new Date().toISOString(),
+        userProfile: {
+          displayName: userData.displayName || "EmoBeat User",
+          email: userData.email,
+          spotifyId: userData.spotifyId,
+          sessionMode: userMode,
+          subscriptionTier: userData.isPro ? "Premium (Pro)" : "Free Tier"
+        },
+        preferences: {
+          cameraQuality,
+          notifications,
+          autoPlay,
+          emotionSensitivity: emotionSensitivity[0],
+          theme: isDarkMode ? "dark" : "light"
+        },
+        scanHistory: {
+          cloudScansCount: dbHistory.length,
+          cloudScans: dbHistory,
+          localScansCount: localHistory.length,
+          localScans: localHistory
+        }
+      };
+
+      // 4. Download file dynamically
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dataPayload, null, 2));
+      const downloadAnchor = document.createElement("a");
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `emobeat_my_data_${userData.spotifyId}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+
+      alert("Data compiled successfully! Your JSON file download has started.");
+    } catch (err) {
+      console.error("Failed to download data", err);
+      alert("An error occurred while compiling your data. Please try again.");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const handleClearHistory = async () => {
+    if (!userData?.spotifyId) {
+      alert("No active user session detected.");
+      return;
+    }
+
+    const confirmClear = window.confirm(
+      "WARNING: This will permanently delete your entire emotional scan history from both MongoDB and local storage. This action is irreversible. \n\nAre you sure you want to proceed?"
+    );
+
+    if (!confirmClear) return;
+
+    setClearing(true);
+    try {
+      // 1. Delete from MongoDB via API
+      const res = await fetch(`${BASE_URL}/api/history/${userData.spotifyId}`, {
+        method: "DELETE"
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to clear database logs from the server");
+      }
+
+      // 2. Clear local storage history
+      localStorage.removeItem("emobeat_scan_history");
+
+      alert("Success! Your scan history has been completely cleared.");
+    } catch (err) {
+      console.error("Clear history failure", err);
+      alert(`Failed to fully clear history: ${err.message}. Please try again.`);
+    } finally {
+      setClearing(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#121212] p-6 transition-colors duration-300">
       <div className="max-w-3xl mx-auto space-y-6">
@@ -154,17 +261,34 @@ export function Settings({ onLogout, userMode = "authenticated", userData = null
 
             <Button
               variant="outline"
-              className="w-full border-gray-200 dark:border-[#404040] text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#282828]"
+              className="w-full border-gray-200 dark:border-[#404040] text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#282828] flex items-center justify-center gap-2"
+              onClick={handleDownloadData}
+              disabled={downloading}
             >
-              Download My Data
+              {downloading ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-[#1DB954] border-t-transparent rounded-full animate-spin"></span>
+                  Compiling Data...
+                </>
+              ) : (
+                "Download My Data"
+              )}
             </Button>
 
             <Button
               variant="outline"
-              className="w-full border-red-500/30 text-red-500 hover:bg-red-500/10"
-              onClick={() => { localStorage.removeItem("emobeat_scan_history"); alert("History cleared."); }}
+              className="w-full border-red-500/30 text-red-500 hover:bg-red-500/10 flex items-center justify-center gap-2"
+              onClick={handleClearHistory}
+              disabled={clearing}
             >
-              Clear History
+              {clearing ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></span>
+                  Clearing History...
+                </>
+              ) : (
+                "Clear History"
+              )}
             </Button>
           </div>
         </Card>
